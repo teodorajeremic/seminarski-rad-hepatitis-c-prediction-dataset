@@ -35,14 +35,14 @@ library(corrplot)
 library(rpart)
 library(rpart.plot)
 library(randomForest)
-#library(caret)
+library(caret)
 ```
 
 ## Učitavanje skupa podataka
 
 ```{r}
-#dataset = read.csv("HepatitisCdata.csv", sep=",")
-dataset = read.csv("C:/Users/Teodora/Desktop/seminarski/HepatitisCdata.csv", sep=",")
+dataset = read.csv("HepatitisCdata.csv", sep=",")
+# dataset = read.csv("C:/Users/Teodora/Desktop/seminarski/HepatitisCdata.csv", sep=",")
 View(dataset)
 ```
 
@@ -1249,3 +1249,64 @@ ggplot(data = dataset, aes(x = Category, fill = Sex)) +
 
 ```
 
+#Odnos ALT i AST po kategorijama pacijenata
+
+```{r}
+ggplot(dataset, aes(x = ALT, y = AST, color = Category)) +
+  geom_point(alpha = 0.7) +
+  labs(
+    title = "Odnos ALT i AST po kategorijama pacijenata",
+    x = "ALT",
+    y = "AST"
+  )
+```
+
+Na scatter plot-u se vidi da sa porastom ALT vrednosti raste i AST, a pacijenti sa hepatitisom, fibrozom i cirozom imaju znatno više vrednosti nego zdravi donori krvi, dok su vrednosti kod donora niske i koncentrisane. Zajedno ova dva enzima bi mogli da daju jasniji model predikcije.
+
+#Zaključak na osnovu celokupne analize
+
+Na osnovu sprovedene analize može se zaključiti da zdravstveni status pacijenata snažno zavisi od više biohemijskih parametara krvi, među kojima se posebno izdvajaju ALT, AST i GGT kao najvažniji pokazatelji oštećenja jetre. Ovi enzimi jasno razdvajaju zdrave i sumnjive davaoce krvi od pacijenata sa hepatitisom, fibrozom i cirozom, naročito kada se posmatraju u međusobnoj kombinaciji. Pored njih, parametri sintetičke funkcije jetre kao što su CHE, ALB i CHOL imaju značajnu ulogu u prepoznavanju uznapredovalih stadijuma bolesti, dok BIL i CREA dodatno ukazuju na težinu oboljenja kod pacijenata sa cirozom. Demografske promenljive, poput starosti i pola, pokazuju slabiji uticaj u poređenju sa biohemijskim pokazateljima. Na osnovu kombinacije domenskog znanja i analize grafičkih prikaza, može se zaključiti da je opravdano razviti model predikcije koji će se prvenstveno oslanjati na biohemijske parametre. U nastavku rada biće ispitano koliko dobar prediktivni model može da se izgradi na osnovu ovih promenljivih.
+
+#Korelaciona matrica
+
+```{r}
+cor_matrix <- cor(select_if(dataset, is.numeric))
+cor_matrix
+
+```
+Korelaciona matrica omogućava prikaz povezanosti između numeričkih kolona. Na osnovu matrice može se uočiti da ALB i PROT imaju umerenu pozitivnu korelaciju od oko 0.55, što ukazuje da se povećanje vrednosti jedne varijable uglavnom prati povećanjem druge. Većina ostalih varijabli ima korelaciju ispod 0.35, što pokazuje slabu linearnu povezanost među njima, dok je Age umereno povezani sa korelacijom od 0.42.
+
+##Kreiranje modela
+Prvo pripremam podatke tako što kategorijske promenljive pretvaram u factor.
+```{r}
+dataset$Category = factor(dataset$Category)
+dataset$Sex = factor(dataset$Sex)
+```
+
+Podela podataka na train:test skup u odnosu 80:20. Stratifikacija na osnovu kolone Category.
+
+```{r}
+set.seed(123)
+trainIndex <- createDataPartition(dataset$Category, p = 0.8, list = FALSE)
+
+train <- dataset[trainIndex, ]
+test <- dataset[-trainIndex, ]
+```
+
+#Linearna regresija
+```{r}
+library(rpart)
+library(rpart.plot)  # za lepši prikaz stabla
+
+# Početni decision tree
+tree_model1 <- rpart(Category ~ ALT + AST + GGT + ALB + BIL,
+                     method = "class",
+                     data = train)
+
+summary(tree_model1)
+# Prikaz stabla
+rpart.plot(tree_model1, main="Početno stablo odlučivanja")
+
+```
+
+Najviše pažnje treba obratiti na GGT, jer se pokazao kao najvažniji parametar u stablu, povišene vrednosti GGT najviše ukazuju na teže oblike oštećenja jetre. Značajne su i vrednosti ALB (niže vrednosti ukazuju na lošiju funkciju jetre), kao i ALT i AST, čije povišene vrednosti signaliziraju oštećenje jetrenih ćelija, dok BIL ima manji uticaj u ovom modelu. Početni model daje smislen uvid u odnose između parametara i kategorija bolesti
