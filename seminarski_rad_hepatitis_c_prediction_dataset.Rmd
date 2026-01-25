@@ -1,8 +1,8 @@
 ---
 title: "Seminarski rad - Hepatitis C Prediction Dataset"
 output:
-  html_document: default
   word_document: default
+  html_document: default
 date: "2025-12-15"
 editor_options: 
   markdown: 
@@ -1016,6 +1016,63 @@ ggplot(dataset, aes(x = Category)) +
   labs(title = "Raspodela kategorija zdravstvenog statusa pacijenata u datasetu")
 ```
 
+## Logička i bivarijantna analiza podataka
+
+Nakon uradjene univarijantne analize, kojom smo prikazali ekstremne vrednosti u okviru pojedinačnih laboratorijskih parametara, uradićemo i logičku analizu odnosa između različitih parametara. Dok univarijantni pristup detektuje vrednosti koje odstupaju od proseka, bivarijantna i multivarijantna analiza omogućavaju uočavanje onih podataka koji su unutar "normalnih" granica kada se posmatraju izolovano, ali formiraju medicinski nemoguće ili sumnjive kombinacije.
+
+**Provera odnosa ALB i PROT**
+
+Prvo ćemo proveriti odnos izmedju albumina(ALB), najzastupljenijeg proteina u krvi, i ukupnih proteina(PROT). Kako je albumin samo jedan od proteina njegova vrednost ne može prelaziti vrednost ukupnih proteina.
+
+Ovim kodom izolujemo redove gde je albumin veći od ukupnih proteina, što je logička greška.
+
+```{r}
+greske_alb_prot <- dataset[which(dataset$ALB > dataset$PROT), ]
+nrow(greske_alb_prot)
+```
+```{r}
+greske_alb_prot
+```
+
+Vidimo da takvih redova ima samo jedan.
+Sledećim grafikom ćemo vizuelno prikazati red u kom se nalazi pacijent kojem je albumin veći od ukupnih proteina.
+
+```{r}
+ggplot(dataset, aes(x = PROT, y = ALB)) +
+  geom_point(alpha = 0.5) +
+  geom_abline(color = "red") 
+```
+
+Obrisaćemo red koji krši logičko pravilo.
+```{r}
+dataset <- dataset[dataset$X != 217, ]
+
+nrow(dataset[dataset$X == 217, ])
+```
+
+**Validacija zdravih donora (Category 0)**
+
+Kategorija "Blood Donor" predstavlja zdrave pacijente. Iako su u medicini odstupanja moguća, ekstremno visoke vrednosti enzima jetre kod zdravih pacijenata narušavaju definiciju kategorije. Ukoliko pacijent označen kao "Blood Donor" ima vrednosti AST ili ALT koje su višestruko iznad gornje granice normale (npr.> 200 U/L), taj red se smatra nereprezentativnim za ciljnu kategoriju.
+
+```{r}
+sumnjivi_donori <- dataset[which(dataset$Category == "0=Blood Donor" & (dataset$AST > 200 | dataset$ALT > 200)), ]
+
+sumnjivi_donori
+```
+Vidimo da u kategoriji "Blood Donor" nema pacijenata sa ekstremno povišenim vrednostima AST i ALT enzima(iznad 200 U/L).
+
+**Konzistentnost holinesteraze (CHE) kod ciroze**
+
+Holinesteraza(CHE) je jedan od najpouzdanijih pokazatelja sposobnosti jetre da proizvodi proteine. Kod pacijenata koji imaju cirozu, nivo holinesteraze je po pravilu veoma nizak. Ukoliko pacijent označen kao "Cirrhosis" ima visoke vrednosti CHE(npr.> 10 kU/L), taj red se smatra nereprezentativnim za ciljnu kategoriju, jer protivreči patofiziološkom stanju ciroze.
+
+```{r}
+sumnjiva_ciroza <- dataset[which(dataset$Category == "3=Cirrhosis" & dataset$CHE > 10), ]
+
+sumnjiva_ciroza
+```
+Vidimo da u kategoriji "Cirrhosis" nema pacijenata sa visokim vrednostima CHE (iznad 10 kU/L).
+
+
 # Analiza podataka
 
 ## Analiza izmedju prediktora i odgovora
@@ -1378,3 +1435,48 @@ rpart.plot(tree_model1, main="Početno stablo odlučivanja")
 Najviše pažnje treba obratiti na GGT, jer se pokazao kao najvažniji parametar u stablu, povišene vrednosti GGT najviše ukazuju na teže oblike oštećenja jetre.
 Značajne su i vrednosti ALB (niže vrednosti ukazuju na lošiju funkciju jetre), kao i ALT i AST, čije povišene vrednosti signaliziraju oštećenje jetrenih ćelija, dok BIL ima manji uticaj u ovom modelu.
 Početni model daje smislen uvid u odnose između parametara i kategorija bolesti
+
+
+```{r}
+# ==========================================================
+# LOGIČKA VALIDACIJA MEDICINSKIH PODATAKA (R)
+# ==========================================================
+
+# 1. Identifikacija logičkih grešaka (ALB vs PROT)
+# Albumin ne može biti veći od ukupnih proteina
+greska_alb_prot <- dataset[dataset$ALB > dataset$PROT & !is.na(dataset$ALB) & !is.na(dataset$PROT), ]
+
+# 2. Identifikacija "Zdravih donora" sa sumnjivo visokim enzimima
+# Ako je neko 'Blood Donor' (0), a AST ili ALT su mu preko 200, to je sumnjivo
+sumnjivi_donori <- dataset[dataset$Category == "0" & (dataset$AST > 200 | dataset$ALT > 200), ]
+
+# 3. Kontradikcija kod Ciroze (CHE i Category 3)
+# Ciroza skoro uvek podrazumeva nizak CHE. Visok CHE kod ciroze je sumnjiv.
+sumnjiva_ciroza <- dataset[dataset$Category == "3" & dataset$CHE > 10, ]
+
+# 4. Fizički nemoguće vrednosti (nule ili negativne vrednosti)
+# Medicinski parametri u ovom setu ne mogu biti 0 ili manje
+nemoguce_vrednosti <- dataset[rowSums(dataset[, 5:14] <= 0, na.rm = TRUE) > 0, ]
+
+# --- PRIKAZ REZULTATA ---
+
+cat("\n--- IZVEŠTAJ O LOGIČKIM OUTLIERIMA ---\n")
+cat("1. Broj redova gde je ALB > PROT:", nrow(greska_alb_prot), "\n")
+cat("2. Broj donora sa ekstremno visokim enzimima:", nrow(sumnjivi_donori), "\n")
+cat("3. Broj pacijenata sa cirozom i previsokim CHE:", nrow(sumnjiva_ciroza), "\n")
+cat("4. Broj redova sa vrednostima <= 0:", nrow(nemoguce_vrednosti), "\n")
+
+# --- VIZUELIZACIJA PRAVILA 1 (ALB vs PROT) ---
+
+library(ggplot2)
+
+ggplot(dataset, aes(x = PROT, y = ALB, color = Category)) +
+  geom_point(alpha = 0.5) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Validacija: Albumin vs Ukupni Proteini",
+       subtitle = "Tačke iznad crvene linije (ALB > PROT) su logičke greške",
+       x = "Ukupni proteini (PROT)",
+       y = "Albumin (ALB)") +
+  theme_minimal()
+```
+
