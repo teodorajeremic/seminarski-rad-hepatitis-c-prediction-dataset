@@ -36,6 +36,7 @@ library(rpart)
 library(rpart.plot)
 library(randomForest)
 library(caret)
+library(pROC) #za upoređivanje razlicitih modela kod predikcije
 ```
 
 ## Učitavanje skupa podataka
@@ -1394,6 +1395,7 @@ cor_matrix
 Korelaciona matrica omogućava prikaz povezanosti između numeričkih kolona.
 Na osnovu matrice može se uočiti da ALB i PROT imaju umerenu pozitivnu korelaciju od oko 0.55, što ukazuje da se povećanje vrednosti jedne varijable uglavnom prati povećanjem druge.
 Većina ostalih varijabli ima korelaciju ispod 0.35, što pokazuje slabu linearnu povezanost među njima, dok je Age umereno povezani sa korelacijom od 0.42.
+Iako ne postoji izražena multikolinearnost, umerene korelacije kod pojedinih atributa mogu uticati na ponašanje linearnih modela, pa je to potrebno imati u vidu prilikom njihove primene.
 
 ## Kreiranje modela 
 
@@ -1415,7 +1417,7 @@ train <- dataset[trainIndex, ]
 test <- dataset[-trainIndex, ]
 ```
 
-# Linearna regresija
+# Decision tree
 
 ```{r}
 library(rpart)
@@ -1427,12 +1429,171 @@ tree_model1 <- rpart(Category ~ ALT + AST + GGT + ALB + BIL,
                      data = train)
 
 summary(tree_model1)
-# Prikaz stabla
-rpart.plot(tree_model1, main="Početno stablo odlučivanja")
 
 ```
 
-Najviše pažnje treba obratiti na GGT, jer se pokazao kao najvažniji parametar u stablu, povišene vrednosti GGT najviše ukazuju na teže oblike oštećenja jetre.
-Značajne su i vrednosti ALB (niže vrednosti ukazuju na lošiju funkciju jetre), kao i ALT i AST, čije povišene vrednosti signaliziraju oštećenje jetrenih ćelija, dok BIL ima manji uticaj u ovom modelu.
-Početni model daje smislen uvid u odnose između parametara i kategorija bolesti
+Na osnovu dobijenog izlaza može se primetiti da se u pojedinim terminalnim čvorovima nalazi veći broj posmatranja iz različitih kategorija bolesti jetre. To ukazuje da model nema jasnu granicu razdvajanja između pojedinih klasa.
 
+Na primer, u čvoru 13 nalazi se ukupno 24 posmatranja, pri čemu su istovremeno prisutne kategorije Hepatitis, Fibrosis i Cirrhosis. Iako je predikovana klasa Fibrosis, raspodela verovatnoća pokazuje značajno preklapanje između klasa, što znači da model teško razlikuje ove faze bolesti.
+
+Slično se primećuje i u čvorovima 26 i 27, gde se Fibrosis i Cirrhosis često javljaju zajedno, uz slične vrednosti parametara GGT, ALB, ALT i AST. Ovi rezultati ukazuju da je klasifikacija sa pet kategorija previše složena za dati skup obeležja i može dovesti do slabijih i nestabilnijih rezultata.
+
+#Razlog za spajanje kategorija
+
+Na osnovu dobijenih rezultata zaključeno je da je opravdano smanjiti broj kategorija ciljne promenljive. Cilj ove analize nije detaljno razlikovanje svih stadijuma bolesti jetre, već da se na pouzdan način razdvoje zdrave osobe od osoba kod kojih je prisutno oboljenje jetre.
+
+Zbog toga su kategorije spojene na sledeći način:
+
+0 – Blood Donor i Suspect Blood Donor
+
+1 – Hepatitis, Fibrosis i Cirrhosis
+
+Na ovaj način problem se svodi na binarni klasifikacioni zadatak, koji je jednostavniji za modelovanje i lakši za tumačenje rezultata. I dalje se radi o klasifikaciji, a ne o regresiji, jer ciljna promenljiva ostaje kategorijska, samo sa manjim brojem klasa.
+
+#Spajanje kategorija i novi decision tree model
+```{r}
+# Kreiranje binarne ciljne promenljive (ISPRAVNO)
+dataset$Category_bin <- ifelse(dataset$Category %in% 
+                                 c("0=Blood Donor", "0s=suspect Blood Donor"),
+                               0, 1)
+
+# Pretvaranje u faktor
+dataset$Category_bin <- factor(dataset$Category_bin,
+                               levels = c(0, 1),
+                               labels = c("No_disease", "Liver_disease"))
+
+# Podela na train i test skup
+set.seed(123)
+trainIndex_bin <- createDataPartition(dataset$Category_bin,
+                                      p = 0.8,
+                                      list = FALSE)
+
+train_bin <- dataset[trainIndex_bin, ]
+test_bin  <- dataset[-trainIndex_bin, ]
+```
+
+```{r}
+# Decision tree sa binarnom klasifikacijom
+tree_model_bin <- rpart(Category_bin ~ ALT + AST + GGT + ALB + BIL,
+                        method = "class",
+                        data = train_bin)
+
+summary(tree_model_bin)
+
+rpart.plot(tree_model_bin,
+           main = "Decision tree – binarna klasifikacija",
+           extra = 104)z
+```
+Na osnovu rezultata decision tree modela sa binarnom ciljnom promenljivom može se uočiti da model ostvaruje jasno razdvajanje između zdravih osoba i osoba sa oboljenjem jetre.
+
+U čvoru 2, koji obuhvata čak 447 posmatranja (više od 90% trening skupa), dominantna je klasa No_disease, sa verovatnoćom od 95.3%. Očekivani gubitak u ovom čvoru je veoma nizak, što ukazuje da model sa velikom sigurnošću prepoznaje zdrave osobe.
+
+Sa druge strane, čvor 3 obuhvata 45 posmatranja i dominantno sadrži klasu Liver_disease, sa verovatnoćom od 86.7%. Ovo pokazuje da model uspeva da identifikuje osobe kod kojih postoji oboljenje jetre, uz relativno mali broj pogrešnih klasifikacija.
+
+Dodatno, u terminalnim čvorovima 4 i 5 primećuje se još jasnija separacija klasa, pri čemu su verovatnoće pravilne klasifikacije veoma visoke. Za razliku od početnog modela sa pet kategorija, ovde nema izraženog preklapanja klasa, a struktura stabla je jednostavnija i lakša za interpretaciju.
+
+## Logistička regresija
+
+```{r}
+# Kopija podataka
+dataset_log <- dataset
+
+# Standardizacija numeričkih kolona
+num_cols <- sapply(dataset_log, is.numeric)
+dataset_log[num_cols] <- scale(dataset_log[num_cols])
+
+set.seed(123)
+trainIndex_log <- createDataPartition(dataset_log$Category_bin,
+                                      p = 0.8,
+                                      list = FALSE)
+
+train_log <- dataset_log[trainIndex_log, ]
+test_log  <- dataset_log[-trainIndex_log, ]
+```
+
+Napravljena je kopija podataka kako bi originalni skup ostao neizmenjen, dok su numerički atributi skalirani jer logistička regresija zavisi od skale podataka i može dati nepouzdane rezultate ako se koriste neujednačene vrednosti.
+
+```{r}
+log_model <- glm(Category_bin ~ ALT + AST + GGT + ALB + BIL,
+                 data = train_log,
+                 family = binomial)
+
+summary(log_model)
+```
+Značajno smanjenje devijanse u odnosu na nul-model ukazuje da uključeni prediktori imaju važan doprinos u objašnjenju ciljne promenljive.
+Rezultati logističke regresije pokazuju da su AST, GGT i BIL statistički značajni prediktori pojave oboljenja jetre, dok ALT ima negativan uticaj na verovatnoću pripadnosti klasi obolelih. Sa druge strane, ALB se ne pokazuje kao značajan prediktor u okviru ovog modela (p > 0.05).
+
+#Predikcija - Logistička regresija
+```{r}
+# Predikcija verovatnoća
+log_pred_prob <- predict(log_model,
+                         newdata = test_log,
+                         type = "response")
+
+# Binarna odluka (0.5 prag)
+log_pred <- ifelse(log_pred_prob > 0.5,
+                   "Liver_disease",
+                   "No_disease")
+
+# Confusion matrix
+confusionMatrix(
+  factor(log_pred,
+         levels = c("No_disease", "Liver_disease")),
+  test_log$Category_bin
+)
+```
+
+Na test skupu logistička regresija postiže visoku tačnost, međutim zbog neravnoteže klasa veći značaj imaju mere osetljivosti i specifičnosti. Model pokazuje veoma visoku osetljivost za klasu zdravih pacijenata (Sensitivity = 0.97), dok je specifičnost niža (0.73), što ukazuje da se deo obolelih pacijenata pogrešno klasifikuje kao zdravi. Balanced accuracy i Kappa koeficijent potvrđuju da model ima dobru ukupnu pouzdanost, ali sa izraženim ograničenjima u detekciji obolelih.
+
+#Predikcija - Decision Tree
+```{r}
+# Predikcija klasa na test skupu
+tree_pred <- predict(tree_model_bin,
+                     newdata = test_bin,
+                     type = "class")
+
+# Confusion matrix
+confusionMatrix(
+  factor(tree_pred,
+         levels = c("No_disease", "Liver_disease")),
+  test_bin$Category_bin
+)
+
+```
+Na test skupu decision tree model ostvaruje visoku tačnost klasifikacije (Accuracy ≈ 94%), što ukazuje da model u velikom broju slučajeva pravilno razdvaja zdrave ispitanike od onih sa oboljenjem jetre. S obzirom na neravnotežu klasa u podacima, veći značaj imaju mere osetljivosti i specifičnosti. Model pokazuje veoma visoku osetljivost za klasu zdravih pacijenata (Sensitivity ≈ 0.95), dok je specifičnost takođe relativno visoka (Specificity ≈ 0.87), što znači da decision tree uspešno prepoznaje i značajan deo obolelih pacijenata.Balanced accuracy i Kappa koeficijent potvrđuju da model ima dobru ukupnu pouzdanost. Na osnovu strukture stabla može se videti da je AST najvažniji parametar u razdvajanju klasa, dok ostali biohemijski pokazatelji imaju dopunsku ulogu u donošenju odluke.
+
+```{r}
+# Logistic regression ROC
+roc_lr <- roc(
+  test_log$Category_bin,
+  log_pred_prob,
+  levels = c("No_disease", "Liver_disease"),
+  direction = "<"
+)
+
+# Decision tree ROC
+tree_prob <- predict(tree_model_bin, test_bin, type = "prob")[, "Liver_disease"]
+
+roc_dt <- roc(
+  test_bin$Category_bin,
+  tree_prob,
+  levels = c("No_disease", "Liver_disease"),
+  direction = "<"
+)
+
+# Plot
+plot(roc_lr, col = "blue", lwd = 2, main = "ROC upoređivanje")
+lines(roc_dt, col = "red", lwd = 2)
+legend("bottomright",
+       legend = c(
+         paste("Logistička regresija (AUC =", round(auc(roc_lr), 3), ")"),
+         paste("Decision Tree (AUC =", round(auc(roc_dt), 3), ")")
+       ),
+       col = c("blue", "red"),
+       lwd = 2)
+
+```
+
+Na osnovu ROC krivih može se uočiti da oba modela ostvaruju veoma dobre performanse klasifikacije, jer se njihove krive nalaze znatno iznad dijagonale koja predstavlja slučajnu klasifikaciju. Logistička regresija ima veću AUC vrednost (AUC = 0.964) u poređenju sa decision tree modelom (AUC = 0.921), što ukazuje da logistička regresija u proseku bolje rangira posmatranja po verovatnoći pripadnosti klasi obolelih, nezavisno od izabranog praga.
+
+Međutim, iako logistička regresija ima višu ukupnu diskriminativnu moć, decision tree model pokazuje konkurentne performanse i ostvaruje dobar balans između osetljivosti i specifičnosti u relevantnom delu ROC prostora. Razlika između krivih je relativno mala, što sugeriše da oba modela pružaju pouzdane predikcije, ali sa različitim prednostima u zavisnosti od kriterijuma evaluacije.
