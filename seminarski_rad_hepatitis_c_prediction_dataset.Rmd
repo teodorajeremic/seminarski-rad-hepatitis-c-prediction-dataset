@@ -1485,7 +1485,7 @@ prop.table(table(test_bin$Target_binary))
 
 ```{r}
 # Decision tree sa binarnom klasifikacijom
-tree_model_bin <- rpart(Target_binary ~ ALT + AST + GGT + ALB + BIL,
+tree_model_bin <- rpart(Target_binary ~ ALT + AST + GGT + BIL + ALB,
                         method = "class",
                         data = train_bin)
 
@@ -1513,6 +1513,7 @@ dataset_log <- dataset
 
 # Standardizacija numeričkih kolona
 num_cols <- sapply(dataset_log, is.numeric)
+num_cols["Target_binary"] <- FALSE
 dataset_log[num_cols] <- scale(dataset_log[num_cols])
 
 set.seed(123)
@@ -1527,8 +1528,9 @@ test_log  <- dataset_log[-trainIndex_log, ]
 Napravljena je kopija podataka kako bi originalni skup ostao neizmenjen, dok su numerički atributi skalirani jer logistička regresija zavisi od skale podataka i može dati nepouzdane rezultate ako se koriste neujednačene vrednosti.
 
 ```{r}
-log_model <- glm(Target_binary ~ ALT + AST + GGT + ALB + BIL,
-                 data = train_log,
+# Pokreni model
+log_model <- glm(Target_binary ~ ALT + AST + GGT + ALB + BIL, 
+                 data = train_log, 
                  family = binomial)
 
 summary(log_model)
@@ -1543,16 +1545,14 @@ log_pred_prob <- predict(log_model,
                          newdata = test_log,
                          type = "response")
 
-# Binarna odluka (0.5 prag)
-log_pred <- ifelse(log_pred_prob > 0.5,
-                   "Liver_disease",
-                   "No_disease")
+# Binarna odluka (koristimo 0 i 1 da se poklopi sa Target_binary)
+log_pred <- ifelse(log_pred_prob > 0.5, 1, 0)
 
 # Confusion matrix
+# Pretvaramo oba u faktor sa istim nivoima (0 i 1)
 confusionMatrix(
-  factor(log_pred,
-         levels = c("No_disease", "Liver_disease")),
-  test_log$Target_binary
+  factor(log_pred, levels = c(0, 1)),
+  factor(test_log$Target_binary, levels = c(0, 1))
 )
 ```
 
@@ -1566,37 +1566,37 @@ tree_pred <- predict(tree_model_bin,
                      type = "class")
 
 # Confusion matrix
-confusionMatrix(
-  factor(tree_pred,
-         levels = c("No_disease", "Liver_disease")),
-  test_bin$Target_binary
-)
+confusionMatrix(pred, as.factor(test_bin$Target_binary), positive = "1")
 
 ```
 Na test skupu decision tree model ostvaruje visoku tačnost klasifikacije (Accuracy ≈ 94%), što ukazuje da model u velikom broju slučajeva pravilno razdvaja zdrave ispitanike od onih sa oboljenjem jetre. S obzirom na neravnotežu klasa u podacima, veći značaj imaju mere osetljivosti i specifičnosti. Model pokazuje veoma visoku osetljivost za klasu zdravih pacijenata (Sensitivity ≈ 0.95), dok je specifičnost takođe relativno visoka (Specificity ≈ 0.87), što znači da decision tree uspešno prepoznaje i značajan deo obolelih pacijenata.Balanced accuracy i Kappa koeficijent potvrđuju da model ima dobru ukupnu pouzdanost. Na osnovu strukture stabla može se videti da je AST najvažniji parametar u razdvajanju klasa, dok ostali biohemijski pokazatelji imaju dopunsku ulogu u donošenju odluke.
 
 ```{r}
+library(pROC)
+
 # Logistic regression ROC
 roc_lr <- roc(
   test_log$Target_binary,
   log_pred_prob,
-  levels = c("No_disease", "Liver_disease"),
+  levels = c(0, 1),
   direction = "<"
 )
 
-# Decision tree ROC
-tree_prob <- predict(tree_model_bin, test_bin, type = "prob")[, "Liver_disease"]
+# Decision Tree ROC
+tree_prob <- predict(tree_model_bin, test_bin, type = "prob")[, "1"]
 
 roc_dt <- roc(
   test_bin$Target_binary,
   tree_prob,
-  levels = c("No_disease", "Liver_disease"),
+  levels = c(0, 1),
   direction = "<"
 )
 
-# Plot
-plot(roc_lr, col = "blue", lwd = 2, main = "ROC upoređivanje")
+# Plotovanje
+plot(roc_lr, col = "blue", lwd = 2, main = "ROC upoređivanje: LR vs Decision Tree")
 lines(roc_dt, col = "red", lwd = 2)
+
+# Legenda sa dinamičkim AUC vrednostima
 legend("bottomright",
        legend = c(
          paste("Logistička regresija (AUC =", round(auc(roc_lr), 3), ")"),
@@ -1604,9 +1604,54 @@ legend("bottomright",
        ),
        col = c("blue", "red"),
        lwd = 2)
-
 ```
 
 Na osnovu ROC krivih može se uočiti da oba modela ostvaruju veoma dobre performanse klasifikacije, jer se njihove krive nalaze znatno iznad dijagonale koja predstavlja slučajnu klasifikaciju. Logistička regresija ima veću AUC vrednost (AUC = 0.964) u poređenju sa decision tree modelom (AUC = 0.921), što ukazuje da logistička regresija u proseku bolje rangira posmatranja po verovatnoći pripadnosti klasi obolelih, nezavisno od izabranog praga.
 
 Međutim, iako logistička regresija ima višu ukupnu diskriminativnu moć, decision tree model pokazuje konkurentne performanse i ostvaruje dobar balans između osetljivosti i specifičnosti u relevantnom delu ROC prostora. Razlika između krivih je relativno mala, što sugeriše da oba modela pružaju pouzdane predikcije, ali sa različitim prednostima u zavisnosti od kriterijuma evaluacije.
+
+# Random Forest
+
+Random Forest koristi niz odluka donešenih od strane više stabala odluke kako bi došao do konačne odluke odnosno predikcije. Dakle, kao i kod Decision Tree, ne zahteva skaliranje numeričkih vrednosti jer se podele unutar stabala vrše na osnovu pragova vrednosti.
+
+```{r}
+set.seed(123) 
+rf_model <- randomForest(
+  formula = Target_binary ~ AST + ALT + GGT + BIL + ALP, 
+  data = train_bin, 
+  ntree = 500,
+  importance = TRUE
+)
+
+print(rf_model)
+
+importance(rf_model)
+varImpPlot(rf_model, main = "Značajnost parametara u RF modelu")
+```
+
+Na osnovu rezultata Random Forest modela možemo uočiti da model postiže visok stepen tačnosti u razdvajanju zdravih pacijenata i pacijenata sa oboljenjem jetre.
+
+Ukupna OOB stopa greške iznosi oko 3.05%, što ukazuje da model pouzdano klasifikuje podatke i da je generalizacija na nove podatke dobra. Na osnovu konfuzione matrice vidimo da je većina zdravih pacijenara pravilno klasifikovana, uz manji procenat pogrešnih klasifikacija. Slično tome, i kod osoba sa oboljenjem jetre model ostvaruje dobre rezultate.
+
+Kao što smo videli na osnovu prethodnih analiza, analiza značajnosti prediktora pokazuje da je promenljiva AST najznačajnija za donošenje odluka u modelu, jer ima najveće vrednosti i za Mean Decrease Accuracy i za Mean Decrease Gini. Takodje i ALT i GGT imaju značajan doprinos u razdvajanju klasa, dok BIL i ALP imaju umeren uticaj.
+
+Za razliku od pojedinačnog stabla odlučivanja, Random Forest model kombinuje informacije iz velikog broja stabala, čime se smanjuje varijansa i povećava stabilnost modela. Model pruža robusnije i preciznije razdvajanje između zdravih pacijenata i pacijenata sa oboljenjem jetre, bez izraženog preklapanja klasa.
+
+
+```{r}
+predictions <- predict(rf_model, test_bin)
+
+predictions <- as.factor(predictions)
+test_bin$Target_binary <- as.factor(test_bin$Target_binary)
+
+confusionMatrix(predictions, test_bin$Target_binary)
+```
+
+Na test skupu Random Forest model ostvaruje izuzetno visoku tačnost klasifikacije (Accuracy = 98.36%), što nam ukazuje na veoma pouzdano razdvajanje klasa.
+
+Model pokazuje veoma visoku osetljivost za pozitivnu klasu (Sensitivity = 0.9907), u našem slučaju to je klasa pacijenata sa oštećenjem jetre, što znači da su skoro svi pozitivni slučajevi ispravno identifikovani. Takodje je i specifičnost je visoka (Specificity = 0.9333), što ukazuje na mali broj lažno pozitivnih predikcija.
+
+Kappa koeficijent (0.924) ukazuje na skoro savršeno slaganje između stvarnih i predviđenih klasa, čak i kada se uzme u obzir neravnoteža klasa u podacima (Prevalence = 0.877). Balanced accuracy (0.962) dodatno potvrđuje da model postiže odlične performanse na obe klase.
+
+Možemo da zaključimo da Random Forest model pokazuje bolju generalizaciju u odnosu na pojedinačno decision tree stablo, uz manju osetljivost na šum i varijacije u podacima. Ovo ga čini veoma pogodnim za praktičnu primenu u predikciji oboljenja jetre.
+
