@@ -1496,13 +1496,17 @@ rpart.plot(tree_model_bin,
            extra = 104)
 ```
 
-Na osnovu rezultata decision tree modela sa binarnom ciljnom promenljivom može se uočiti da model ostvaruje jasno razdvajanje između zdravih osoba i osoba sa oboljenjem jetre.
+U čvoru 1 (Node 1) nalazi se svih 492 posmatranja iz trening skupa, pri čemu je većina pacijenata zdrava (432), dok je 60 označeno kao obolelo. Model u ovom čvoru predviđa klasu No_disease, ali očekivani gubitak od oko 12% pokazuje da bez dodatnih podela još uvek postoji značajna neizvesnost. Kao najvažniji kriterijum razdvajanja model bira vrednost AST, što ukazuje da je ovaj enzim ključni faktor za razlikovanje zdravih i bolesnih pacijenata u datom skupu podataka.
 
-U čvoru 2, koji obuhvata čak 447 posmatranja (više od 90% trening skupa), dominantna je klasa No_disease, sa verovatnoćom od 95.3%. Očekivani gubitak u ovom čvoru je veoma nizak, što ukazuje da model sa velikom sigurnošću prepoznaje zdrave osobe.
+U Node 2, koji nastaje kada je AST manji od 53.05, nalazi se čak 445 pacijenata, odnosno više od 90% celog skupa. Ovde je dominantna klasa No_disease, sa verovatnoćom od oko 95%. Očekivani gubitak je vrlo nizak (oko 4%), što pokazuje da model sa velikom sigurnošću prepoznaje zdrave osobe kada je AST u normalnom rasponu. To znači da niska vrednost AST snažno smanjuje verovatnoću bolesti.
 
-Sa druge strane, čvor 3 obuhvata 45 posmatranja i dominantno sadrži klasu Liver_disease, sa verovatnoćom od 86.7%. Ovo pokazuje da model uspeva da identifikuje osobe kod kojih postoji oboljenje jetre, uz relativno mali broj pogrešnih klasifikacija.
+Unutar ovog čvora model uvodi dodatnu podelu na osnovu ALT vrednosti. U Node 4, gde su i AST i ALT niski, nalazi se najveći broj pacijenata (432), a gotovo svi su zdravi. Verovatnoća klase No_disease dostiže skoro 98%, a očekivani gubitak je minimalan. Ovaj deo stabla predstavlja najstabilniji i najpouzdaniji deo modela, jer jasno pokazuje da kombinacija niskog AST i niskog ALT gotovo uvek ukazuje na nizak nivo bolesti jetre.
 
-Dodatno, u terminalnim čvorovima 4 i 5 primećuje se još jasnija separacija klasa, pri čemu su verovatnoće pravilne klasifikacije veoma visoke. Za razliku od početnog modela sa pet kategorija, ovde nema izraženog preklapanja klasa, a struktura stabla je jednostavnija i lakša za interpretaciju.
+Nasuprot tome, Node 5 obuhvata samo 13 pacijenata sa niskim AST, ali povišenim ALT. Iako model ovde većinski predviđa bolest (oko 77%), broj posmatranja je veoma mali, pa se zaključci moraju tumačiti malo opreznije. Ovaj čvor nam pokazuje da povišen ALT može biti rizičan čak i kada je AST nizak, ali zbog malog uzorka ne može se donositi čvrst zaključak bez dodatnih podataka.
+
+Sa druge strane imamo Node 3, koji obuhvata pacijente sa AST većim ili jednakim 53.05. Ovde model uglavnom predviđa bolest, sa verovatnoćom od oko 87%. Ipak, prisustvo šest zdravih pacijenata u ovom čvoru pokazuje da povišen AST ne znači automatski bolest, već povećava rizik. Očekivani gubitak od oko 13% ukazuje da je model u ovoj grani manje siguran nego u slučajevima sa niskim AST.
+
+Sveukupno, stablo pokazuje da model najbolje funkcioniše kada su vrednosti AST i ALT niske, jer tada gotovo bez greške prepoznaje zdrave osobe. Najveću nesigurnost ima u manjim podgrupama sa povišenim enzimima, što ukazuje da su za te slučajeve potrebni dodatni podaci ili složeniji modeli kako bi se poboljšala preciznost predikcije.
 
 
 ## Logistička regresija
@@ -1556,7 +1560,9 @@ confusionMatrix(
 )
 ```
 
-Na test skupu logistička regresija postiže visoku tačnost, međutim zbog neravnoteže klasa veći značaj imaju mere osetljivosti i specifičnosti. Model pokazuje veoma visoku osetljivost za klasu zdravih pacijenata (Sensitivity = 0.97), dok je specifičnost niža (0.73), što ukazuje da se deo obolelih pacijenata pogrešno klasifikuje kao zdravi. Balanced accuracy i Kappa koeficijent potvrđuju da model ima dobru ukupnu pouzdanost, ali sa izraženim ograničenjima u detekciji obolelih.
+Na test skupu logistička regresija postiže visoku ukupnu tačnost od 91,8%, što na prvi pogled deluje kao veoma dobar rezultat. Međutim, pošto u podacima ima mnogo više zdravih nego bolesnih pacijenata, sama tačnost nije dovoljna da bismo ocenili kvalitet modela. Zbog toga su važnije mere osetljivosti i specifičnosti, jer bolje pokazuju kako model greši. Model ima veoma visoku osetljivost za zdrave pacijente (Sensitivity = 0.97), što znači da gotovo sve zdrave osobe pravilno prepoznaje. Sa druge strane, specifičnost je znatno niža i iznosi 0.53, što znači da model često pogrešno svrstava bolesne pacijente u grupu zdravih. Drugim rečima, model je sklon da češće kaže da je pacijent zdrav, čak i kada to nije tačno.
+
+Balanced accuracy od oko 75% daje realniju sliku uspešnosti modela jer uzima u obzir rezultate za obe klase, a ne samo za zdrave pacijente. Kappa koeficijent od 0.57 pokazuje da model ima umereno dobro slaganje sa stvarnim dijagnozama, ali da i dalje postoji prostor za poboljšanje. Sve zajedno, ovi rezultati pokazuju da model generalno dobro radi, ali ima jasna ograničenja u prepoznavanju bolesnih pacijenata, pa bi bio korisniji kao pomoćni alat za skrining nego kao konačna medicinska odluka..
 
 #Predikcija - Decision Tree
 ```{r}
@@ -1566,10 +1572,14 @@ tree_pred <- predict(tree_model_bin,
                      type = "class")
 
 # Confusion matrix
-confusionMatrix(pred, as.factor(test_bin$Target_binary), positive = "1")
+confusionMatrix(tree_pred, as.factor(test_bin$Target_binary), positive = "1")
 
 ```
-Na test skupu decision tree model ostvaruje visoku tačnost klasifikacije (Accuracy ≈ 94%), što ukazuje da model u velikom broju slučajeva pravilno razdvaja zdrave ispitanike od onih sa oboljenjem jetre. S obzirom na neravnotežu klasa u podacima, veći značaj imaju mere osetljivosti i specifičnosti. Model pokazuje veoma visoku osetljivost za klasu zdravih pacijenata (Sensitivity ≈ 0.95), dok je specifičnost takođe relativno visoka (Specificity ≈ 0.87), što znači da decision tree uspešno prepoznaje i značajan deo obolelih pacijenata.Balanced accuracy i Kappa koeficijent potvrđuju da model ima dobru ukupnu pouzdanost. Na osnovu strukture stabla može se videti da je AST najvažniji parametar u razdvajanju klasa, dok ostali biohemijski pokazatelji imaju dopunsku ulogu u donošenju odluke.
+Na test skupu decision tree postiže visoku tačnost od 92,6%, što pokazuje da model generalno veoma dobro klasifikuje pacijente. Kappa koeficijent od 0,70 ukazuje na dobro slaganje između predikcija modela i stvarnih vrednosti, pa se može zaključiti da model ne pogađa nasumično već zaista uči relevantne obrasce iz podataka.
+
+Model pokazuje uravnoteženije performanse u poređenju sa logističkom regresijom. Osetljivost za obolele pacijente iznosi 0,87, što znači da većinu bolesnih model uspešno prepoznaje, dok je specifičnost vrlo visoka (0,93), pa model retko greši kada su u pitanju zdravi pacijenti.
+
+Negativna prediktivna vrednost je veoma visoka (0,98), što znači da je predikcija „zdrav“ uglavnom pouzdana, dok niža pozitivna prediktivna vrednost (0,65) pokazuje da predikcija bolesti nosi veću verovatnoću greške. Sveukupno, stablo odlučivanja se pokazuje kao pouzdaniji i uravnoteženiji model od logističke regresije.
 
 ```{r}
 library(pROC)
@@ -1606,7 +1616,7 @@ legend("bottomright",
        lwd = 2)
 ```
 
-Na osnovu ROC krivih može se uočiti da oba modela ostvaruju veoma dobre performanse klasifikacije, jer se njihove krive nalaze znatno iznad dijagonale koja predstavlja slučajnu klasifikaciju. Logistička regresija ima veću AUC vrednost (AUC = 0.964) u poređenju sa decision tree modelom (AUC = 0.921), što ukazuje da logistička regresija u proseku bolje rangira posmatranja po verovatnoći pripadnosti klasi obolelih, nezavisno od izabranog praga.
+Na osnovu ROC krivih može se uočiti da oba modela ostvaruju veoma dobre performanse klasifikacije, jer se njihove krive nalaze znatno iznad dijagonale koja predstavlja slučajnu klasifikaciju. Logistička regresija ima veću AUC vrednost (AUC = 0.964) u poređenju sa decision tree modelom (AUC = 0.914), što ukazuje da logistička regresija u proseku bolje rangira posmatranja po verovatnoći pripadnosti klasi obolelih, nezavisno od izabranog praga.
 
 Međutim, iako logistička regresija ima višu ukupnu diskriminativnu moć, decision tree model pokazuje konkurentne performanse i ostvaruje dobar balans između osetljivosti i specifičnosti u relevantnom delu ROC prostora. Razlika između krivih je relativno mala, što sugeriše da oba modela pružaju pouzdane predikcije, ali sa različitim prednostima u zavisnosti od kriterijuma evaluacije.
 
@@ -1654,4 +1664,12 @@ Model pokazuje veoma visoku osetljivost za pozitivnu klasu (Sensitivity = 0.9907
 Kappa koeficijent (0.924) ukazuje na skoro savršeno slaganje između stvarnih i predviđenih klasa, čak i kada se uzme u obzir neravnoteža klasa u podacima (Prevalence = 0.877). Balanced accuracy (0.962) dodatno potvrđuje da model postiže odlične performanse na obe klase.
 
 Možemo da zaključimo da Random Forest model pokazuje bolju generalizaciju u odnosu na pojedinačno decision tree stablo, uz manju osetljivost na šum i varijacije u podacima. Ovo ga čini veoma pogodnim za praktičnu primenu u predikciji oboljenja jetre.
+
+##Zaključak
+
+Cilj analize bio je da se ispita koliko dobro različiti modeli mašinskog učenja mogu da predvide da li pacijent pripada grupi zdravih ili obolelih na osnovu vrednosti jetrenih enzima. Na osnovu svih sprovedenih analiza može se zaključiti da je klasifikacija moguća sa visokom tačnošću, pri čemu su AST, ALT i GGT najvažniji prediktori u većini modela.
+
+Pojedinačno stablo odlučivanja dalo je dobar i interpretabilan model, ali je pokazalo određenu nestabilnost u manjim podgrupama podataka. Logistička regresija je imala visoku ukupnu tačnost i najbolju AUC vrednost na ROC krivoj, što znači da dobro rangira pacijente po riziku, ali je slabije prepoznavala obolele zbog neravnoteže klasa.
+
+Najbolje rezultate je dao Random Forest model, koji je postigao najveću tačnost, vrlo visoku osetljivost i specifičnost, kao i skoro savršenu Kappa vrednost. Zbog toga se Random Forest može smatrati najpouzdanijim modelom za predikciju oboljenja jetre u ovom skupu podataka, jer bolje generalizuje na nove slučajeve i manje je osetljiv na šum u podacima.
 
