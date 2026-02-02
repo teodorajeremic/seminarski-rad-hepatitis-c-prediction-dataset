@@ -1625,6 +1625,9 @@ Međutim, iako logistička regresija ima višu ukupnu diskriminativnu moć, deci
 Random Forest koristi niz odluka donešenih od strane više stabala odluke kako bi došao do konačne odluke odnosno predikcije. Dakle, kao i kod Decision Tree, ne zahteva skaliranje numeričkih vrednosti jer se podele unutar stabala vrše na osnovu pragova vrednosti.
 
 ```{r}
+train_bin$Target_binary <- factor(train_bin$Target_binary)
+test_bin$Target_binary  <- factor(test_bin$Target_binary)
+
 set.seed(123) 
 rf_model <- randomForest(
   formula = Target_binary ~ AST + ALT + GGT + BIL + ALP, 
