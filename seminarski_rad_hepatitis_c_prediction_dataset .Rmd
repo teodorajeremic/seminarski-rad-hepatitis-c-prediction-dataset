@@ -1,0 +1,1615 @@
+---
+title: "Seminarski rad - Hepatitis C Prediction Dataset"
+output:
+  word_document: default
+  html_document: default
+date: "2025-12-15"
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Tema: Hepatitis C\
+Naziv: hepatitis-c-dataset.csv
+
+Hepatitis C Prediction Dataset je skup podataka koji pruža detaljan uvid u laboratorijske nalaze krvi i osnovne demografske karakteristike pacijenata, sa ciljem analize zdravlja jetre.
+Podaci obuhvataju biohemijske parametre jetre, kao što su alanin-aminotransferaze (ALT), aspartat-aminotransferaze (AST), gama-glutamil (GGT), bilirubin (BIL) i albumin (ALB), koji su značajni indikatori oštećenja i funkcije jetre.
+Ciljna promenljiva Category označava zdravstveni status pacijenata, uključujući zdrave davaoce krvi i različite stadijume oboljenja jetre (hepatitis, fibroza i ciroza).
+Podaci uključuju kliničke pokazatelje i demografske informacije, a prikupljeni su radi omogućavanja analize i izgradnje modela klasifikacije za razlikovanje zdravih i obolelih pacijenata.
+
+Link ka skupu podataka na kaggle sajtu: <https://www.kaggle.com/datasets/fedesoriano/hepatitis-c-dataset>
+
+# Prikaz podataka
+
+Učitavanje potrebnih biblioteka
+
+```{r}
+library(tidyverse)
+library(Amelia)
+library(nortest)
+library(ggplot2)
+library(corrplot)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(caret)
+library(pROC)
+library(mice)
+```
+
+## Učitavanje skupa podataka
+
+```{r}
+dataset = read.csv("HepatitisCdata.csv", sep=",")
+View(dataset)
+```
+
+Funkcija head prikazuje prvih šest redova dataset-a, čime se vrši inicijalni uvid u strukturu i format zapisa podataka.
+
+```{r}
+head(dataset)
+```
+
+Funkcije ncol i nrow daju informacije o dimenzijama (broju kolona i broju redova) skupa podataka.
+Skup podataka ima 14 kolona i 615 redova.
+
+```{r}
+ncol(dataset)
+nrow(dataset)
+```
+
+Funkcija str daje strukturu skupa podataka.
+Prikazuje tip podatka za svaku promenljivu, kao i prvih nekoliko vrednosti u svakoj koloni.
+U skupu podataka se nalazi 12 numeričkih promenljivih (int, num) i 2 kategorijske promenljive (chr).
+
+```{r}
+str(dataset)
+```
+
+Skup podataka sadrži sledeće kolone:
+
+1.  X – numerička promenljiva koja označava jedinstveni identifikacioni broj pacijenta
+2.  Category – kategorijska promenljiva koja označava zdravstveni status pacijenta (0 – davalac krvi, 0s – sumnjivi davalac krvi, 1 – Hepatitis, 2 – Fibroza, 3 – Ciroza)
+3.  Age – numerička promenljiva koja označava starost pacijenta u godinama
+4.  Sex – kategorijska promenljiva koja označava pol pacijenta (m – muški, f – ženski)
+5.  ALB – numerička promenljiva koja označava koncentraciju albumina u krvi
+6.  ALP – numerička promenljiva koja označava nivo alkalne fosfataze u krvi
+7.  ALT – numerička promenljiva koja označava nivo alanin-aminotransferaze u krvi
+8.  AST – numerička promenljiva koja označava nivo aspartat-aminotransferaze u krvi
+9.  BIL – numerička promenljiva koja označava nivo bilirubina u krvi
+10. CHE – numerička promenljiva koja označava nivo holinesteraze u krvi
+11. CHOL – numerička promenljiva koja označava nivo holesterola u krvi
+12. CREA – numerička promenljiva koja označava nivo kreatinina u krvi
+13. GGT – numerička promenljiva koja označava nivo gama-glutamil transferaze u krvi
+14. PROT – numerička promenljiva koja označava ukupnu koncentraciju proteina u krvi
+
+# Priprema podataka
+
+## Nedostajuće vrednosti
+
+Funkcija summary daje uvid u raspodelu podataka i može ukazati na nedostajuće vrednosti.
+
+```{r}
+summary(dataset)
+```
+
+Identifikacija nedostajućih vrednosti po kolonama vrši se kombinacijom funkcija is.na i colSums
+
+```{r}
+colSums(is.na(dataset))
+```
+
+Skup podataka ima nedostajuće vrednosti u 5 numeričkih kolona i to su: ALB, ALP, ALT, CHOL i PROT.
+Ove podatke je potrebno pripremiti za dalju analizu.
+
+```{r}
+colMeans(is.na(dataset))*100
+```
+
+```{r}
+par(mfrow=c(1,1))
+missmap(obj = dataset, legend = FALSE, main = "Hepatitis C dataset")
+```
+
+Sa grafika se vidi da nedostajuće vrednosti čine mali procenat ukupnih podataka.
+
+### Analiza i obrada nedostajućih vrednosti
+
+Analiza prisustva nedostajućih vrednosti u kategorijskim kolonama Category i Sex se vrši korišćenjem frekvencijskih tabela u svrhu identifikacije svih postojećih kategorija i provere prisustva neočekivanih ili pogrešnih vrednosti.
+Zatim se vrši provera prisustva eksplicitnih NA vrednosti i praznih stringova.
+
+```{r}
+table(dataset$Category)
+```
+
+```{r}
+sum(is.na(dataset$Category) | dataset$Category == "")
+```
+
+```{r}
+table(dataset$Sex)
+```
+
+```{r}
+sum(is.na(dataset$Sex) | dataset$Sex == "")
+```
+
+Rezultati analize potvrđuju odsustvo neočekivanih kategorija, NA vrednosti i paznih polja unutar kolona Category i Sex
+
+Nakon identifikacije nedostajućih vrednosti, umesto primene univarijantnih metoda poput zamene srednjom vrednošću ili medijanom, primenjen je MICE algoritam (*Multivariate Imputation by Chained Equations*).
+Zamena srednjom vrednošću ili medijanom smanjuje varijansu podataka jer sve nedostajuće vrednosti postaju identične, dok MICE svakoj nedostajućoj vrednosti dodeljuje jedinstvenu vrednost na osnovu korelacije sa ostalim kolonama.
+
+```{r}
+dataset$Sex <- as.factor(dataset$Sex)
+dataset$Category <- as.factor(dataset$Category)
+
+imputed_data = mice(dataset, m=5, method = 'pmm', seed = 123, printFlag = FALSE)
+
+dataset = complete(imputed_data, 1)
+```
+
+```{r}
+colSums(is.na(dataset))
+```
+
+## Analiza raspodele podataka po kolonama
+
+Analiza raspodele promenljivih prikazuje kako su podaci rasporedjeni u okviru svake kolone, omogućava uočavanje obrazaca u podacima, identifikuje da li postoje izuzeci itd.
+Za proveru postojanja odstupajućih vrednosti primenjen je jedan od jednostavnih pristupa, a to je IQR metoda.
+Glavna prednost ovog pristupa je u tome što se ne oslanja na aritmetičku sredinu, koja je izrazito osetljiva na ekstremne vrednosti, već na kvartile koji su znatno stabilniji.
+Metoda podrazumeva izračunavanje prvog (Q1) i trećeg kvartila (Q3), na osnovu kojih se određuju donja i gornja granica (Q1 - 1.5 \* IQR i Q3 + 1.5 \* IQR).
+Vrednosti koje odstupaju od ovih granica klasifikuju se kao odstupajuće vrednosti.
+Zajedno sa računskim metodom, koriste se i boxplot-ovi za svaku kolonu radi vizuelne verifikacije ekstrema i lakše identifikacije odstupajućih vrednosti.
+
+**Kolona Age**
+
+```{r}
+summary(dataset$Age)
+```
+
+Starost pacijenata je u rasponu od 19 do 77 godina.
+Srednja vrednost iznosi 47.41, dok je medijana 47, što ukazuje na približno simetričnu raspodelu.
+Većina pacijenata nalazi se u srednjim starosnim kategorijama.
+
+Grafički prikaz raspodele pacijenata u odnosu na broj godina
+
+Histogram raspodele pacijenata po godinama
+
+```{r}
+ggplot(dataset, aes(x = Age)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Histogram raspodele godina")
+```
+
+Na grafiku se može uočiti da je najveći broj pacijenata starosti između 35 i 55 godina.
+Raspodela je relativno ravnomerna, sa blagim asimetrijom, ali bez ekstremnih odstupanja.
+
+Primenjena je provera prisustva odstupajućih vrednosti
+
+```{r}
+
+#Izračunavanje kvartila
+
+Q1 <- quantile(dataset$Age, 0.25, na.rm = TRUE)
+Q3 <- quantile(dataset$Age, 0.75, na.rm = TRUE)
+IQR_val <- Q3 - Q1
+
+#Određivanje granica za outlajere
+
+donja_granica <- Q1 - 1.5 * IQR_val
+gornja_granica <- Q3 + 1.5 * IQR_val
+
+#Prikaz donje i gornje granice
+
+donja_granica
+gornja_granica
+
+#Pronalaženje outlajera
+
+outliers <- dataset$Age[dataset$Age < donja_granica | dataset$Age > gornja_granica]
+
+#Broj outlajera
+
+length(outliers)
+outliers
+
+```
+
+Rezultati dobijeni za kolonu Age pokazuju da je donji kvartil 16.5, gornji kvartil 76.5, a pomoću IQR metode identifikovana je jedna odstupajuća vrednost.
+To znači da postoji jedna vrednost koja odstupa od ostatka uzorka (77 godina), ali pošto nije jako ekstremna, njen uticaj na statistiku je mali i može se bez problema ostaviti u analizi.
+
+Boxplot za vizuelnu detekciju odstupajućih vrednosti
+
+```{r}
+
+boxplot(dataset$Age, main = "Boxplot za Age", horizontal = TRUE)
+```
+
+Na boxplotu se može videti ta jedna odstupajuća vrednost koja se nalazi iznad 76.5.
+
+**Kolona Sex**
+
+S obzirom da je Sex kategorijska kolona, identifikaciju zastupljenosti pojedinačnih kategorija prikazana je pomoću tabele učestalosti.
+
+```{r}
+table(dataset$Sex)
+```
+
+Grafički prikaz raspodele polova
+
+```{r}
+ggplot(dataset, aes(x = Sex)) +
+  geom_bar() +
+  labs(title = "Raspodela polova u datasetu")
+```
+
+Na osnovu tabele učestalosti i grafika se može uočiti da u skupu podataka ima više pacijenata muškog pola.
+
+**Kolona ALB**
+
+```{r}
+summary(dataset$ALB)
+```
+
+Vrednosti parametra ALB su u rasponu od 14.9 do 82.2.
+Srednja vrednost iznosi 41.62, dok je medijana 41.95, što ukazuje na približno simetričnu raspodelu bez izražene asimetrije.
+Većina pacijenata ima vrednosti ALB koncentrisane oko srednjih vrednosti.
+
+Grafički prikaz raspodele pacijenata u odnosu na ALB
+
+```{r}
+ggplot(dataset, aes(x = ALB)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Histogram raspodele ALB")
+```
+
+Na grafiku se može videti da najveći broj pacijenata ima vrednost ALB u opsegu između 35 i 50.
+Raspodela je relativno simetrična, uz prisustvo nekoliko ekstremnih vrednosti, što može ukazivati na potencijalne odstupajuće vrednosti u podacima.
+
+Primenjena je provera prisustva odstupajućih vrednosti
+
+```{r}
+
+#Izračunavanje kvartila
+
+Q1 <- quantile(dataset$ALB, 0.25, na.rm = TRUE)
+Q3 <- quantile(dataset$ALB, 0.75, na.rm = TRUE)
+IQR_val <- Q3 - Q1
+
+#Određivanje granica za outlajere
+
+donja_granica <- Q1 - 1.5 * IQR_val
+gornja_granica <- Q3 + 1.5 * IQR_val
+
+#Prikaz donje i gornje granice
+
+donja_granica
+gornja_granica
+
+#Pronalaženje outlajera
+
+outliers <- dataset$ALB[dataset$ALB < donja_granica | dataset$ALB > gornja_granica]
+
+#Broj outlajera
+
+length(outliers)
+outliers
+
+```
+
+Rezultati dobijeni za kolonu ALB pokazuju da je donji kvartil je 29.2, a gornji kvartil 54.8.
+IQR metodom identifikovano je 27 odstupajućih vrednosti, što ukazuje na veću varijabilnost podataka.
+
+Boxplot za vizuelnu detekciju odstupajućih vrednosti
+
+```{r}
+
+boxplot(dataset$ALB, main = "Boxplot za ALB", horizontal = TRUE)
+```
+
+Boxplot za kolonu ALB vizuelno potvrđuje prisustvo većeg broja odstupajućih vrednosti, koji su najizraženiji na donjem kraju raspodele, dok se nekoliko ekstremnih vrednosti uočava i na gornjem kraju.
+S obzirom da se radi o kliničkom parametru, ove vrednosti najverovatnije predstavljaju stvarna odstupanja povezana sa zdravstvenim stanjem pacijenata, a ne greške u merenju.
+Zbog toga odstupajuće vrednosti neće biti uklonjene iz dalje analize, kako bi se zadržala potpuna informacija o varijabilnosti podataka.
+
+**Kolona ALP**
+
+```{r}
+summary(dataset$ALP)
+```
+
+Vrednosti parametra ALP su u rasponu od 11.30 do 416.60.
+Srednja vrednost iznosi 66.20, dok je medijana 68.22, što ukazuje na relativno simetričnu raspodelu centralnog dela podataka, uz prisustvo blage desne asimetrije.
+
+Grafički prikaz raspodele pacijenata u odnosu na ALP
+
+```{r}
+ggplot(dataset, aes(x = ALP)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Histogram raspodele ALP")
+```
+
+Na grafiku se može videti da najveći broj pacijenata ima vrednost ALP u opsegu između 50 i 100.
+Raspodela ima izražen rep ka višim vrednostima, uz prisustvo nekoliko veoma visokih vrednosti, što ukazuje prisustvo odstuajućih vrednosti u podacima.
+
+Primenjena je provera prisustva odstupajućih vrednosti
+
+```{r}
+
+#Izračunavanje kvartila
+
+Q1 <- quantile(dataset$ALP, 0.25, na.rm = TRUE)
+Q3 <- quantile(dataset$ALP, 0.75, na.rm = TRUE)
+IQR_val <- Q3 - Q1
+
+#Određivanje granica za outlajere
+
+donja_granica <- Q1 - 1.5 * IQR_val
+gornja_granica <- Q3 + 1.5 * IQR_val
+
+#Prikaz donje i gornje granice
+
+donja_granica
+gornja_granica
+
+#Pronalaženje outlajera
+
+outliers <- dataset$ALP[dataset$ALP < donja_granica | dataset$ALP > gornja_granica]
+
+#Broj outlajera
+
+length(outliers)
+outliers
+
+```
+
+Rezultati dobijeni za kolonu ALP pokazuju da donji kvartil iznosi 13.425, dok je gornji kvartil 118.825.
+Primenom IQR metode identifikovano je ukupno 14 odstupajućih vrednosti.
+To ukazuje na postojanje vrednosti koje odstupaju od većine podataka, ali njihov broj nije izrazito velik u odnosu na ukupan uzorak.
+
+Boxplot za vizuelnu detekciju odstupajućih vrednosti
+
+```{r}
+
+boxplot(dataset$ALP, main = "Boxplot za ALP", horizontal = TRUE)
+```
+
+Boxplot za ALP ukazuje na desno asimetričnu raspodelu sa nekoliko visokih odstupajućih vrednosti.
+S obzirom da je ALP biohemijski parametar, ove ekstremne vrednosti mogu predstavljati realna klinička odstupanja, a ne greške u merenju, iz tog razloga odstupajuće vrednosti neće biti uklonjene iz dalje analize.
+
+**Kolona ALT**
+
+```{r}
+summary(dataset$ALT)
+```
+
+Vrednosti parametra ALT su u rasponu od 0.90 do 325.30.
+Srednja vrednost iznosi 28.44, dok je medijana 23.00.
+Srednja vrednost je primetno veća od medijane, pa se može zaključiti da raspodela pokazuje izrazitu desnu asimetriju.
+
+Grafički prikaz raspodele pacijenata u odnosu na ALT
+
+```{r}
+ggplot(dataset, aes(x = ALT)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Histogram raspodele ALT")
+```
+
+Na grafiku se može videti da najveći broj pacijenata ima vrednost ALT u opsegu između 15 i 40.
+Raspodela ima izražen rep ka višim vrednostima, što ukazuje prisustvo značajnih odstupajućih vrednosti u podacima.
+
+Primenjena je provera prisustva odstupajućih vrednosti
+
+```{r}
+
+#Izračunavanje kvartila
+
+Q1 <- quantile(dataset$ALT, 0.25, na.rm = TRUE)
+Q3 <- quantile(dataset$ALT, 0.75, na.rm = TRUE)
+IQR_val <- Q3 - Q1
+
+#Određivanje granica za outlajere
+
+donja_granica <- Q1 - 1.5 * IQR_val
+gornja_granica <- Q3 + 1.5 * IQR_val
+
+#Prikaz donje i gornje granice
+
+donja_granica
+gornja_granica
+
+#Pronalaženje outlajera
+
+outliers <- dataset$ALT[dataset$ALT < donja_granica | dataset$ALT > gornja_granica]
+
+#Broj outlajera
+
+length(outliers)
+outliers
+
+```
+
+Rezultati dobijeni za kolonu ALT pokazuju da donja granica za detekciju odstupajućih vrednosti iznosi −8.575, dok je gornja granica 58.025.
+Primenom IQR metode identifikovano je ukupno 36 gornjih odstupajućih vrednosti, dok donjih nema.
+
+Boxplot za vizuelnu detekciju odstupajućih vrednosti
+
+```{r}
+
+boxplot(dataset$ALT, main = "Boxplot za ALT", horizontal = TRUE)
+```
+
+Boxplot za kolonu ALT vizuelno potvrđuje prisustvo velikog broja gornjih odstupajućih vredsnoti, koji ukazuju na izraženu desnu asimetriju.
+S obzirom da se radi o ključnom markeru oštećenja jetre, ove vrednosti najverovatnije predstavljaju realna patološka stanja kod pacijenata sa oštećenjem jetre i zbog toga odstupajuće vrednosti neće biti uklonjene iz dalje analize.
+
+**Kolona AST**
+
+```{r}
+summary(dataset$AST)
+```
+
+Vrednosti parametra AST su u rasponu od 10.60 do 324.00.
+Srednja vrednost iznosi 34.79, dok je medijana 25.90.
+Znatna razlika između srednje vrednosti i medijane ukazuje na to da je raspodela izrazito asimetrična udesno.
+
+Grafički prikaz raspodele pacijenata u odnosu na AST
+
+```{r}
+ggplot(dataset, aes(x = AST)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Histogram raspodele AST")
+```
+
+Na grafiku se može uočiti da najveći broj pacijenata ima vrednost AST u opsegu između 20 i 40.
+Raspodela ima izražen rep ka višim vrednostima, što ukazuje prisustvo brojnih odstupajućih vrednosti koji prelaze vrednost od 100, dok ekstremni slučajevi dostižu i preko 300.
+
+Primenjena je provera prisustva odstupajućih vrednosti
+
+```{r}
+
+#Izračunavanje kvartila
+
+Q1 <- quantile(dataset$AST, 0.25, na.rm = TRUE)
+Q3 <- quantile(dataset$AST, 0.75, na.rm = TRUE)
+IQR_val <- Q3 - Q1
+
+#Određivanje granica za outlajere
+
+donja_granica <- Q1 - 1.5 * IQR_val
+gornja_granica <- Q3 + 1.5 * IQR_val
+
+#Prikaz donje i gornje granice
+
+donja_granica
+gornja_granica
+
+#Pronalaženje outlajera
+
+outliers <- dataset$AST[dataset$AST < donja_granica | dataset$AST > gornja_granica]
+
+#Broj outlajera
+
+length(outliers)
+outliers
+
+```
+
+Rezultati dobijeni za kolonu AST pokazuju da donji kvartil iznosi 4.65, a gornji kvartil 49.85.
+Primenom IQR metode identifikovano je ukupno 64 odstupajućih vrednosti, što ukazuje na postojanje vrednosti koje odstupaju od većine podataka.
+
+Boxplot za vizuelnu detekciju odstupajućih vrednosti
+
+```{r}
+
+boxplot(dataset$AST, main = "Boxplot za AST", horizontal = TRUE)
+```
+
+Boxplot za kolonu AST vizuelno potvrđuje prisustvo velikog broja gornjih odstupajućih vrednosti, koji ukazuju na izraženu desnu asimetriju.
+S obzirom da je AST važan biohemijski marker oštećenja jetre, ove povišene vrednosti predstavljaju realna patološka stanja kod pacijenata sa oštećenjem jetre.
+Zbog toga odstupajućih vrednosti neće biti uklonjeni iz dalje analize, kako bi se zadržala potpuna informacija o varijabilnosti podataka.
+
+**Kolona BIL**
+
+```{r}
+summary(dataset$BIL)
+```
+
+Vrednosti parametra BIL su u rasponu od 0.8 do 254.00.
+Srednja vrednost iznosi 11.4, dok je medijana 7.3, što ukazuje na to da je raspodela asimetrična udesno, jer je srednja vrednost veća od medijane.
+
+Grafički prikaz raspodele pacijenata u odnosu na BIL
+
+```{r}
+ggplot(dataset, aes(x = BIL)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Histogram raspodele BIL")
+```
+
+Na grafiku se može uočiti da najveći broj pacijenata ima niske vrednosti BIL, u opsegu između 5 i 15.
+Raspodela ima izražen rep ka višim vrednostima, što ukazuje na prisustvo odstupajućih vrednosti.
+Manji broj pacijenata ima veoma povišene vrednosti bilirubina koje prelaze 100, dok ekstremni slučajevi dostižu i preko 200, što je tipično za teška oštećenja funkcije jetre.
+
+Primenjena je provera prisustva odstupajućih vrednosti
+
+```{r}
+
+#Izračunavanje kvartila
+
+Q1 <- quantile(dataset$BIL, 0.25, na.rm = TRUE)
+Q3 <- quantile(dataset$BIL, 0.75, na.rm = TRUE)
+IQR_val <- Q3 - Q1
+
+#Određivanje granica za outlajere
+
+donja_granica <- Q1 - 1.5 * IQR_val
+gornja_granica <- Q3 + 1.5 * IQR_val
+
+#Prikaz donje i gornje granice
+
+donja_granica
+gornja_granica
+
+#Pronalaženje outlajera
+
+outliers <- dataset$BIL[dataset$BIL < donja_granica | dataset$BIL > gornja_granica]
+
+#Broj outlajera
+
+length(outliers)
+outliers
+
+```
+
+Rezultati dobijeni za kolonu BIL pokazuju da donji kvartil iznosi -3.55, a gornji 20.05.
+Primenom IQR metode identifikovano je ukupno 47 odstupajućih vrednosti.
+Ova visoka broj odstupajućih vrednosti ukazuje na značajne varijacije u nivoima bilirubina kod pacijenata.
+
+Boxplot za vizuelnu detekciju odstupajućih vrednosti
+
+```{r}
+
+boxplot(dataset$BIL, main = "Boxplot za BIL", horizontal = TRUE)
+```
+
+Boxplot za kolonu BIL ukazuje na desno asimetričnu raspodelu sa značajnim brojem gornjih odstupajućih vrednsoti.
+Ovo potvrđuje prisustvo pacijenata sa značajno povišenim nivoima bilirubina.
+S obzirom da je bilirubin ključni indikator jetrenih funkcija, ova odstupanja od normalnih vrednosti mogu biti posledica različitih oboljenja jetre i zbog toga odstupajuće vrednosti neće biti uklonjene iz dalje analize.
+
+**Kolona CHE**
+
+```{r}
+summary(dataset$CHE)
+```
+
+Vrednosti parametra CHE su u rasponu od 1.420 do 16.410.
+Srednja vrednost iznosi 8.197, dok je medijana 8.260, što ukazuje da je raspodela približno simetrična, bez izražene asimetrije.
+
+Grafički prikaz raspodele pacijenata u odnosu na CHE
+
+```{r}
+ggplot(dataset, aes(x = CHE)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Histogram raspodele CHE")
+```
+
+Na grafiku se može uočiti da najveći broj pacijenata ima vrednosti CHE u opsegu između 6 i 10.
+Možemo uočiti i potencijalne odstupajuće vrednosti na nižim i višim vrednostima.
+
+Primenjena je provera prisustva odstupajućih vrednosti
+
+```{r}
+
+#Izračunavanje kvartila
+
+Q1 <- quantile(dataset$CHE, 0.25, na.rm = TRUE)
+Q3 <- quantile(dataset$CHE, 0.75, na.rm = TRUE)
+IQR_val <- Q3 - Q1
+
+#Određivanje granica za outlajere
+
+donja_granica <- Q1 - 1.5 * IQR_val
+gornja_granica <- Q3 + 1.5 * IQR_val
+
+#Prikaz donje i gornje granice
+
+donja_granica
+gornja_granica
+
+#Pronalaženje outlajera
+
+outliers <- dataset$CHE[dataset$CHE < donja_granica | dataset$CHE > gornja_granica]
+
+#Broj outlajera
+
+length(outliers)
+outliers
+
+```
+
+Rezultati dobijeni za kolonu CHE pokazuju da donji kvartil iznosi 2.95, dok gornji kvartil iznosi 13.57.
+Primenom IQR metode identifikovane su ukupno 24 odstupajuće vrednosti, što ukazuje na prisustvo značajne varijabilnosti u nivoima holinesteraze među pacijentima.
+S obzirom na to da je holinesteraza važan biohemijski marker funkcije jetre, odstupanja od normalnih vrednosti mogu biti posledica različitih oboljenja jetre.
+
+Boxplot za vizuelnu detekciju outlajera
+
+```{r}
+
+boxplot(dataset$CHE, main = "Boxplot za CHE", horizontal = TRUE)
+```
+
+Boxplot za kolonu CHE ukazuje na raspodelu sa izraženim odstupajućim vrednostima na obe strane, što potvrđuje prisustvo pacijenata sa ekstremno sniženim i ekstremno povišenim vrednostima ovog enzima, što može biti posledica različitih oboljenja jetre i zbog toga odstupajuće vrednosti neće biti uklonjene iz dalje analize.
+
+**Kolona CHOL**
+
+```{r}
+summary(dataset$CHOL)
+```
+
+Vrednosti parametra CHOL su u rasponu od 1.430 do 9.670.
+Srednja vrednost iznosi 5.367, dok je medijana 5.300, što ukazuje da je raspodela približno simetrična, bez izražene asimetrije.
+
+Grafički prikaz raspodele pacijenata u odnosu na CHOL
+
+```{r}
+ggplot(dataset, aes(x = CHOL)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Histogram raspodele CHOL")
+```
+
+Na grafiku se može uočiti da najveći broj pacijenata ima vrednosti CHE u opsegu otprilike između 4,5 i 6.
+Možemo uočiti i potencijalne odstupajuće vrednosti na nižim i višim vrednostima.
+
+Primenjena je provera prisustva odstupajućih vrednosti
+
+```{r}
+
+#Izračunavanje kvartila
+
+Q1 <- quantile(dataset$CHOL, 0.25, na.rm = TRUE)
+Q3 <- quantile(dataset$CHOL, 0.75, na.rm = TRUE)
+IQR_val <- Q3 - Q1
+
+#Određivanje granica za outlajere
+
+donja_granica <- Q1 - 1.5 * IQR_val
+gornja_granica <- Q3 + 1.5 * IQR_val
+
+#Prikaz donje i gornje granice
+
+donja_granica
+gornja_granica
+
+#Pronalaženje outlajera
+
+outliers <- dataset$CHOL[dataset$CHOL < donja_granica | dataset$CHOL > gornja_granica]
+
+#Broj outlajera
+
+length(outliers)
+outliers
+
+```
+
+Rezultati dobijeni za kolonu CHOL pokazuju da donji kvartil iznosi 2.46, dok gornji kvartil iznosi 8.21.
+Primenom IQR metode identifikovano su ukupno 12 odstupajućih vrednosti, što ukazuje na prisustvo varijabilnosti u nivoima holesterola među pacijentima.
+
+Boxplot za vizuelnu detekciju odstupajućih vrednosti
+
+```{r}
+
+boxplot(dataset$CHOL, main = "Boxplot za CHOL", horizontal = TRUE)
+```
+
+Boxplot za kolonu CHOL ukazuje na raspodelu sa izraženim odstupajućim vrednostima na obe strane, što potvrđuje prisustvo pacijenata sa ekstremno sniženim i ekstremno povišenim vrednostima holesterola.
+S obzirom na to da je holesterol bitan medicinski podatak koji zavisi od ishrane, genetike i opšteg zdravlja, ovakva odstupanja su sasvim normalna, i zbog toga odstupajuće vrednosti neće biti uklonjene iz dalje analize.
+
+**Kolona CREA**
+
+```{r}
+summary(dataset$CREA)
+```
+
+Vrednosti parametra CREA su u rasponu od 8.00 do 1079.10.
+Srednja vrednost iznosi 81.29, dok je medijana 77.00, što ukazuje na asimetričnu raspodelu udesno, jer je srednja vrednost veća od medijane.
+
+Grafički prikaz raspodele pacijenata u odnosu na CREA
+
+```{r}
+ggplot(dataset, aes(x = CREA)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Histogram raspodele CREA")
+```
+
+Na grafiku se može uočiti da najveći broj pacijenata ima vrednosti kreatinina u opsegu otprilike između 60 i 100.
+Raspodela ima izražen rep ka višim vrednostima, što ukazuje na prisustvo izraženih odstupajućih vrednosti.
+
+Primenjena je provera prisustva odstupajućih vrednosti
+
+```{r}
+
+#Izračunavanje kvartila
+
+Q1 <- quantile(dataset$CREA, 0.25, na.rm = TRUE)
+Q3 <- quantile(dataset$CREA, 0.75, na.rm = TRUE)
+IQR_val <- Q3 - Q1
+
+#Određivanje granica za outlajere
+
+donja_granica <- Q1 - 1.5 * IQR_val
+gornja_granica <- Q3 + 1.5 * IQR_val
+
+#Prikaz donje i gornje granice
+
+donja_granica
+gornja_granica
+
+#Pronalaženje outlajera
+
+outliers <- dataset$CREA[dataset$CREA < donja_granica | dataset$CREA > gornja_granica]
+
+#Broj outlajera
+
+length(outliers)
+outliers
+
+```
+
+Rezultati dobijeni za kolonu CREA pokazuju da donji kvartil (Q1) iznosi 35.5, a gornji (Q3) 119.5.
+Primenom IQR metode identifikovano je ukupno 12 odstupajućih vrednosti.
+Prisutne su vrednosti koje drastično odskaču od proseka (poput 519.0 i 1079.1), što ukazuje na pacijente sa ozbiljno narušenom funkcijom bubreg.
+Ovo je važno jer ozbiljna oboljenja jetre često dovode i do prestanka rada bubrega.
+
+Boxplot za vizuelnu detekciju odstupajućih vrednosti
+
+```{r}
+
+boxplot(dataset$CREA, main = "Boxplot za CREA", horizontal = TRUE)
+```
+
+Boxplot za kolonu CREA ukazuje na desno asimetričnu raspodelu sa izraženim gornjim odstupajućim vrednostima.
+Vizuelni prikaz potvrđuje da se većina vrednosti nalazi u nižem opsegu, dok mali broj ekstremno visokih vrednosti značajno odstupa.
+Zbog prethodno navedenih razloga odstupajuće vrednosti neće biti uklonjene iz dalje analize, kako bi se zadržala potpuna informacija o varijabilnosti podataka.
+
+**Kolona GGT**
+
+```{r}
+summary(dataset$GGT)
+```
+
+Vrednosti parametra GGT su u rasponu od 4.50 do 650.90.
+Srednja vrednost iznosi 39.53, dok je medijana 23.30, što ukazuje na izraženu desnu asimetriju raspodele.
+Većina pacijenata ima niske vrednosti GGT, koncentrisane u donjem delu raspodele, dok manji broj pacijenata ima veoma visoke vrednosti, koje značajno utiču na povećanje srednje vrednosti.
+
+Grafički prikaz raspodele pacijenata u odnosu na GGT
+
+```{r}
+ggplot(dataset, aes(x = GGT)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Histogram raspodele GGT")
+```
+
+Na grafiku se može videti da najveći broj pacijenata ima niže vrednosti GGT.
+Raspodela ima izražen rep ka višim vrednostima, što ukazuje na prisustvo izraženih odstupajućih vrednosti.
+
+Primenjena je provera prisustva odstupajućih vrednosti
+
+```{r}
+
+#Izračunavanje kvartila
+
+Q1 <- quantile(dataset$GGT, 0.25, na.rm = TRUE)
+Q3 <- quantile(dataset$GGT, 0.75, na.rm = TRUE)
+IQR_val <- Q3 - Q1
+
+#Određivanje granica za outlajere
+
+donja_granica <- Q1 - 1.5 * IQR_val
+gornja_granica <- Q3 + 1.5 * IQR_val
+
+#Prikaz donje i gornje granice
+
+donja_granica
+gornja_granica
+
+#Pronalaženje outlajera
+
+outliers <- dataset$GGT[dataset$GGT < donja_granica | dataset$GGT > gornja_granica]
+
+#Broj outlajera
+
+length(outliers)
+outliers
+
+```
+
+Rezultati dobijeni za kolonu GGT pokazuju da donji kvartil iznosi -21.05, a gornji 76.95.
+Primenom IQR metode identifikovano je ukupno 65 odstupajućih vrednosti.
+Ovako veliki broj ekstremnih vrednosti ukazuje na značajne varijacije u nivoima ovog enzima među pacijentima.
+Budući da je GGT osetljiv pokazatelj oštećenja jetre i žučnih puteva, ove visoke vrednosti (koje dosežu i do 650.9) klinički su veoma značajne jer ukazuju na ozbiljne zdravstvene probleme.
+
+Boxplot za vizuelnu detekciju odstupajućih vrednosti
+
+```{r}
+
+boxplot(dataset$GGT, main = "Boxplot za GGT", horizontal = TRUE)
+```
+
+Boxplot za kolonu GGT ukazuje na izrazito desno asimetričnu raspodelu sa velikim brojem gornjih odstupajućim vrednostima.
+Ovakav grafički prikaz potvrđuje prisustvo grupe pacijenata sa drastično povišenim nivoima enzima, što je od ključnog značaja za dijagnostiku oštećenja jetre i problema sa žučnim putevima, i zbog toga odstupajuće vrednosti neće biti uklonjene iz dalje analize.
+
+**Kolona PROT**
+
+```{r}
+summary(dataset$PROT)
+```
+
+Vrednosti parametra PROT su u rasponu od 44.80 do 90.00.
+Srednja vrednost iznosi 72.04, dok je medijana 72.20, što ukazuje na približno simetričnu raspodelu bez izražene asimetrije.
+
+Grafički prikaz raspodele pacijenata u odnosu na PROT
+
+```{r}
+ggplot(dataset, aes(x = PROT)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Histogram raspodele PROT")
+```
+
+Na grafiku se može videti da najveći broj pacijenata ima vrednosti PROT u opsegu između približno 65 i 80.
+Raspodela je relativno simetrična, uz prisustvo manjeg broja nižih i viših vrednosti.
+
+Primenjena je provera prisustva odstupajućih vrednosti
+
+```{r}
+
+#Izračunavanje kvartila
+
+Q1 <- quantile(dataset$PROT, 0.25, na.rm = TRUE)
+Q3 <- quantile(dataset$PROT, 0.75, na.rm = TRUE)
+IQR_val <- Q3 - Q1
+
+#Određivanje granica za outlajere
+
+donja_granica <- Q1 - 1.5 * IQR_val
+gornja_granica <- Q3 + 1.5 * IQR_val
+
+#Prikaz donje i gornje granice
+
+donja_granica
+gornja_granica
+
+#Pronalaženje outlajera
+
+outliers <- dataset$PROT[dataset$PROT < donja_granica | dataset$PROT > gornja_granica]
+
+#Broj outlajera
+
+length(outliers)
+outliers
+
+```
+
+Rezultati dobijeni za kolonu PROT pokazuju da donji kvartil iznosi 60.15, dok je gornji 84.55.
+Primenom IQR metode, identifikovano je 20 odstupajućih vrednosti.
+Primećujemo značajan broj odstupajućih vrednosti koji su ispod proseka (npr. 44.8, 47.0).
+Kako je jetra odgovorna za stvaranje skoro svih proteina u krvi, ovi niski rezultati su direktan pokazatelj da jetra kod tih pacijenata verovatno ne funkcioniše kako treba i da ne može da proizvede dovoljno proteina.
+
+Boxplot za vizuelnu detekciju outlajera
+
+```{r}
+
+boxplot(dataset$PROT, main = "Boxplot za PROT", horizontal = TRUE)
+```
+
+Boxplot za kolonu PROT ukazuje na prisustvo odstupajućih vrednosti na oba kraja distribucije, što ukazuje na pacijente sa vrednostima koje značajno odstupaju od proseka.
+Ovakav grafički prikaz potvrđuje postojanje grupe pacijenata sa smanjenom koncentracijom proteina, što je od ključnog značaja za dijagnostiku poremećaja u ishrani, kao i potencijalnih problema sa radom jetre, i zbog toga odstupajuće vrednosti neće biti uklonjene iz dalje analize.
+
+## Logička i bivarijantna analiza podataka
+
+Nakon uradjene univarijantne analize, kojom su identifikovane ekstremne vrednosti u okviru pojedinačnih laboratorijskih parametara, proces se nastavlja implementacijom logičke analize odnosa između različitih parametara.
+Dok univarijantni pristup detektuje vrednosti koje odstupaju od proseka, bivarijantna i multivarijantna analiza omogućavaju uočavanje onih podataka koji su unutar "normalnih" granica kada se posmatraju izolovano, ali formiraju medicinski nemoguće ili sumnjive kombinacije.
+
+**Provera odnosa ALB i PROT**
+
+Ovaj korak obuhvata proveru odnos izmedju albumina, najzastupljenijeg proteina u krvi, i ukupnih proteina.
+Ukupni proteini u krvi predstavljaju ukupnu količinu albumina i globulina u organizmu.
+Kako je albumin samo jedan od proteina njegova vrednost ne može prelaziti vrednost ukupnih proteina.
+
+```{r}
+greske_alb_prot <- dataset[which(dataset$ALB > dataset$PROT), ]
+nrow(greske_alb_prot)
+```
+
+```{r}
+greske_alb_prot
+```
+
+Analiza je identifikovala samo jednu opservaciju koja narušava biološki odnos.
+Na grafiku je vizuelno prikazan red u kom se nalazi pacijent kojem je albumin veći od ukupnih proteina.
+
+```{r}
+ggplot(dataset, aes(x = PROT, y = ALB)) +
+  geom_point(alpha = 0.5) +
+  geom_abline(color = "red") 
+```
+
+Identifikovana opservacija koja narušava logičko pravilo obrisana je iz daljeg procesa analize.
+
+```{r}
+dataset <- dataset[dataset$X != 217, ]
+
+nrow(dataset[dataset$X == 217, ])
+```
+
+**Kolona Category - izlazna kolona**
+
+Pošto je Category kategorijska kolona prikazana je tabela učestalosti kako bi se videlo koliko puta se svaka kategorija pojavljuje.
+
+```{r}
+table(dataset$Category)
+```
+
+Izlazna kolona Category predstavlja zdravstveni status pacijenta i sadrži pet klasa: 0 – Blood Donor, 0s – Suspect Blood Donor, 1 – Hepatitis, 2 – Fibrosis i 3 – Cirrhosis.
+
+Grafički prikaz raspodele kategorija
+
+```{r}
+ggplot(dataset, aes(x = Category)) +
+  geom_bar() +
+  labs(title = "Raspodela kategorija zdravstvenog statusa pacijenata u datasetu")
+```
+
+Na osnovu tabele učestalosti i grafičkog prikaza, uočava se značajan disbalans klasa.
+Kategorija "0=Blood Donor" dominira sa 532 uzorka, dok su ostale kategorije izrazito malobrojne.
+
+U svrhu optimizacije performansi modela mašinskog učenja i preciznijeg prepoznavanja razlike, urađeno je spajanje kategorija u dve logičke celine (binarna klasifikacija):
+
+1.  Blood Donor – Spajamo kategorije "0=Blood Donor" i "0s=suspect Blood Donor", jer su sumnjivi donori idalje pacijenti koji nemaju potvrđeno oboljenje jetre.
+
+2.  Hepatitis C – Spajamo kategorije "1=Hepatitis", "2=Fibrosis" i "3=Cirrhosis", jer one zapravo predstavljaju različite stadijume progresije iste bolesti
+
+```{r}
+dataset$Target <- ifelse(dataset$Category %in% c("0=Blood Donor", "0s=suspect Blood Donor"), 
+                         "Blood Donor", "Hepatitis C")
+
+dataset$Target <- as.factor(dataset$Target)
+
+table(dataset$Target)
+```
+
+# Analiza podataka
+
+## Analiza izmedju prediktora i odgovora
+
+U skladu sa medicinskim činjenicama, najvažniji pokazatelji oštećenja jetre su ALT, AST, GGT i BIL, pri čemu kombinacije ovih parametara daju bolje rezultate u razlikovanju zdravih pacijenata i pacijenata sa hepatitisom C nego pojedinačni parametri.
+
+### Kolona ALT
+
+Grafikom ispod prikazan je odnos između kategorije pacijenata i vrednosti ALT enzima.
+
+```{r}
+ggplot(data = dataset, aes(x = Target, y = ALT)) +
+  geom_boxplot() +
+  labs(
+    title = "Distribucija ALT vrednosti po kategorijama pacijenata",
+    x = "Kategorija pacijenata",
+    y = "ALT"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+ALT bi u većini slučajeva trebalo da bude viši kod pacijenata sa oštećenjem jetre, ali to nije uvek pravilo, kod nekih pacijenata ALT može biti normalan ili da se menja kroz vreme, što se može videti preklapanjem između kategorija na boxplotu.
+Zbog toga ALT nije dovoljan sam za pouzdanu procenu oštećenja jetre.
+
+### Kolona AST
+
+Grafikom ispod prikazan je odnos između kategorije pacijenata i vrednosti AST enzima.
+
+```{r}
+ggplot(data = dataset, aes(x = Target, y = AST)) +
+  geom_boxplot() +
+  labs(
+    title = "Distribucija AST vrednosti po kategorijama pacijenata",
+    x = "Kategorija pacijenata",
+    y = "AST"
+  ) +
+ theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Na grafiku se može videti da su AST vrednosti kod pacijenata sa oštećenjem jetre u proseku više nego kod zdravih pacijenata, uz mnogo veći raspon.
+Za razliku od ALT-a, ovde je razlika između kategorija izraženija.
+Zbog toga može da se zaključi da AST može biti značajan prediktor u ovom skupu podataka.
+
+### Kolona GGT
+
+Grafikom ispod prikazan je odnos između kategorije pacijenata i vrednosti GGT enzima.
+
+```{r}
+ggplot(data = dataset, aes(x = Target, y = GGT)) +
+  geom_boxplot() +
+  labs(
+    title = "Distribucija GGT vrednosti po kategorijama pacijenata",
+    x = "Kategorija pacijenata",
+    y = "GGT"
+  ) +
+ theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Na grafiku se može uočiti da se vrednosti GGT kod zdravih pacijenata i onima sa oštećenjem jetre skoro uopšte ne preklapaju.
+Kod zdravih pacijenata GGT ima dosta niže vrednosti, dok kod pacijenata sa oštećenjem jetre GGT ima značajno višu medijanu i veći raspon, što i jeste u skladu sa medicinskim činjenicama.
+Na osnovu ovoga može se zaključiti da bi GGT bio vrlo značajan prediktor u ovom skupu podataka.
+
+### Kolona BIL
+
+Grafikom ispod prikazan je odnos između kategorije pacijenata i vrednosti BIL.
+
+```{r}
+ggplot(data = dataset, aes(x = Target, y = BIL)) +
+  geom_boxplot() +
+  labs(
+    title = "Distribucija BIL vrednosti po kategorijama pacijenata",
+    x = "Kategorija pacijenata",
+    y = "BIL"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Nivo bilirubina kod zdravih pacijenata je nizak, dok porast vrednosti prate progresivna oštećenja jetre, što se može videti na grafiku.
+Kategorija pacijenata sa oštečenjem jetre ima viši nivo medijane i značajno veći broj ekstremnih vrednosti.
+Zaključuje se da je BIL takođe značajan kandidat za predikciju.
+
+### Kolona ALB
+
+Grafikom ispod prikazan je odnos između kategorije pacijenata i vrednosti albumina.
+
+```{r}
+ggplot(data = dataset, aes(x = Target, y = ALB)) +
+  geom_boxplot() +
+  labs(
+    title = "Distribucija ALB vrednosti po kategorijama pacijenata",
+    x = "Kategorija pacijenata",
+    y = "ALB"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Na grafiku se može uočiti da postoji jasno preklapanje izmedju kategorija.
+Iako se kod pacijenata sa oštećenjem jetre primećuje blagi pad medijane i širi raspon nižih vrednosti, većina njihovih rezultata i dalje pada u opseg normalnih vrednosti za zdrave pacijente.
+Na osnovu ovoga može se zaključiti da ALB ne bi bio značajan samostalan prediktor.
+
+### Kolona ALP
+
+Grafikom ispod prikazan je odnos između kategorije pacijenata i vrednosti ALP enzima.
+
+```{r}
+ggplot(data = dataset, aes(x = Target, y = ALP)) +
+  geom_boxplot() +
+  labs(
+    title = "Distribucija ALP vrednosti po kategorijama pacijenata",
+    x = "Kategorija pacijenata",
+    y = "ALP"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Na grafiku se može videti gotovo potpuno preklapanje interkvartilnih opsega obe kategorije, odnosno većina podataka za obe kategorije se nalazi u istom opsegu, što bi onemogućilo modelu da jasno definiše granicu između kategorija samo na osnovu ovog parametra.
+
+### Kolona CHE
+
+Grafikom ispod prikazan je odnos između kategorije pacijenata i vrednosti CHE enzima.
+
+```{r}
+ggplot(data = dataset, aes(x = Target, y = CHE)) +
+  geom_boxplot() +
+  labs(
+    title = "Distribucija CHE vrednosti po kategorijama pacijenata",
+    x = "Kategorija pacijenata",
+    y = "CHE"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Na osnovu grafika vidimo preklapanje interkvartilnih opsega između zdravih pacijenata i pacijenata sa oštećenjem jetre.
+Takodje, vidimo i trend pada vrednosti CHE kod pacijenata sa oštećenjem jetre, i raspon vrednosti je znatno širi.
+U nastavku ćemo uraditi analizu u kombinaciji sa drugim parametrima jetre.
+
+### Kolona CHOL
+
+Grafikom ispod prikazan je odnos između kategorije pacijenata i vrednosti holesterola.
+
+```{r}
+ggplot(data = dataset, aes(x = Target, y = CHOL)) +
+  geom_boxplot() +
+  labs(
+    title = "Distribucija CHOL vrednosti po kategorijama pacijenata",
+    x = "Kategorija pacijenata",
+    y = "CHOL"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Na osnovu grafika se može videti preklapanje interkvartilnih opsega između zdravih pacijenata i pacijenata sa oštećenjem jetre, sa trendom nižih vrednosti kod bolesne grupe, gde je medijana pomerena naniže u odnosu na zdravu grupu.
+Može se aključiti da iako CHOL nije značajan samostalan prediktor.
+
+### Kolona CREA
+
+Grafikom ispod prikazan je odnos između kategorije pacijenata i vrednosti kreatinina.
+
+```{r}
+ggplot(data = dataset, aes(x = Target, y = CREA)) +
+  geom_boxplot() +
+  labs(
+    title = "Distribucija CREA vrednosti po kategorijama pacijenata",
+    x = "Kategorija pacijenata",
+    y = "CREA"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Kreatinin zapravo nije primarni marker za jetru, već za funkciju bubrega, što se može videti i na distribuciji podataka.
+Dakle, na osnovu grafika vidimo skoro potpuno preklapanje interkvartilnih opsega, što ukazuje na to da CREA samostalno ne predstavlja pouzdan indikator u razlikovanju zdravih pacijenata od pacijenata sa oštećenjem jetre.
+
+### Kolona PROT
+
+Grafikom ispod prikazan je odnos između kategorije pacijenata i vrednosti ukupnih proteina.
+
+```{r}
+ggplot(data = dataset, aes(x = Target, y = PROT)) +
+  geom_boxplot() +
+  labs(
+    title = "Distribucija vrednosti proteina po kategorijama pacijenata",
+    x = "Kategorija pacijenata",
+    y = "PROT"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Na osnovu grafika se može videti preklapanje interkvartilnih opsega između zdravih pacijenata i onih sa oštečenjem jetre Iako kategorija pacijenata sa oštečenjem jetre pokazuje nešto širi raspon vrednosti naviše, medijane obe grupe su pozicionirane veoma blizu.
+PROT samostalno ne predstavlja pouzdan indikator u razlikovanju zdravih pacijenata od pacijenata sa oštećenjem jetre.
+
+### Kolona Age
+
+Grafikom ispod prikazan je odnos između kategorije pacijenata i starosti.
+
+```{r}
+ggplot(data = dataset, aes(x = Target, y = Age)) +
+  geom_boxplot() +
+  labs(
+    title = "Distribucija starosti po kategorijama pacijenata",
+    x = "Kategorija pacijenata",
+    y = "Age"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Na grafiku se može uočiti preklapanje interkvartilnih opsega između zdravih pacijenata i pacijenata sa oštećenjem jetre, što ukazuje na to da starost sama po sebi nije značajan prediktor za prisustvo bolesti.
+
+### Kolona Sex
+
+Grafikom ispod prikazan je odnos između kategorije pacijenata i polova.
+
+```{r}
+ggplot(data = dataset, aes(x = Target, fill = Sex)) +
+  geom_bar(position = "dodge") +
+  labs(
+    title = "Distribucija pola po kategorijama pacijenata",
+    x = "Kategorija pacijenata",
+    y = "Broj pacijenata",
+    fill = "Pol"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+Na osnovu prikazanog grafikona može se uočiti da je u obe kategorije pacijenata zastupljen veći broj muškaraca u odnosu na žene.
+U okviru ovog skupa podataka, pol ne predstavlja dobar prediktor za razlikovanje pacijenata sa oštećenjem jetre od zdravih pacijenata.
+
+## Multivarijantna analiza
+
+Nakon detaljne univarijantne analize pojedinačnih biohemijskih parametara, naredni korak analize obuhvata ispitivanje odnosa između više parametara.
+
+### Odnos AST i ALT
+
+ALT i AST u krvi su ključni markeri oštećenja jetre, jer se ovi enzimi oslobađaju iz ćelija jetre kada su one oštećene.
+Odnos između njih pomaže lekarima u proceni oštećenja jetre.
+Primenjena je logaritamska skala, zato što AST i ALT u ovom skupu podataka imaju ogroman opseg, od normalnih vrednosti do ekstremnih vrednosti, koje bi "pogurale" sve ostale tačke u jedan ugao grafika.
+
+```{r}
+ggplot(dataset, aes(x = AST, y = ALT)) +
+  geom_point(alpha = 0.6, size = 2.5, color = "#e74c3c") +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(title = "AST vs ALT", x = "AST", y = "ALT") +
+  theme_minimal()
+```
+
+Na osnovu grafika može se uočiti da kako rastu vrednosti AST, tako rastu i vrednosti ALT, ali i da značajan broj opservacija odstupa od linearne regresije.
+
+### Odnos AST i ALT po kategorijama pacijenata
+
+```{r}
+ggplot(dataset, aes(x = AST, y = ALT, color = Target)) +
+  geom_point(alpha = 0.6, size = 2.5) +
+  scale_x_log10() + 
+  scale_y_log10() +
+  labs(title = "Odnos AST i ALT: Marker oštećenja ćelija",
+       x = "AST",
+       y = "ALT") +
+  theme_minimal()
+```
+
+Dodavanjem izlazne kolone na grafik, uočava se da pomenuta odstupanja nisu slučajna već da su povezana sa dijagnozom, odnosno pripadaju pacijentima sa oštećenjem jetre.
+Kod najvećeg broja zdravih pacijenata vrednosti AST i ALT koncentrisane u veoma uskom opsegu normalnih fizioloških vrednosti.
+Za razliku od zdravih pacijenata, kod onih koji imaju oštećenje jetre vidi se izrazita raspršenost podataka, što govori o različitim stadijumima oštećenja jetre.
+
+### Odnos GGT i AST po kategorijama pacijenata
+
+Prethodne analize su pokazale da su GGT i AST pojedinačno značajni prediktori i zbog toga je sada prikazan njihov medjusobni odnos.
+
+```{r}
+ggplot(dataset, aes(x = GGT, y = AST, color = Target)) +
+  geom_point(alpha = 0.6, size = 2.5) +
+  scale_x_log10() + 
+  labs(title = "Odnos GGT i AST po kategorijama") +
+  theme_minimal()
+```
+
+Na osnovu grafika se može videti razdvajanje izmedju kategorija.
+Zdravi pacijenti su koncentrisani u području niskih vrednosti oba parametra, dok kod pacijenata sa oštećenjem jetre dolazi do rasipanja vrednosti ka višim vrednostima oba parametra.
+Vrednosti GGT su povišene i kada su vrednosti AST relativno stabilne.
+
+## Zaključak na osnovu dosadašnje analize
+
+Na osnovu sprovedene analize može se zaključiti da zdravstveni status pacijenata snažno zavisi od više biohemijskih parametara krvi, među kojima se posebno izdvajaju AST i GGT kao najvažniji pokazatelji oštećenja jetre.
+Pored njih, odnosno u kombinaciji sa njima, bi značajnu ulogu mogli da imaju i drugi biohemijski parametri poput BIL i ALT.
+Demografske promenljive, starost i pol, pokazuju slabiji uticaj u poređenju sa biohemijskim parametrima.
+Na osnovu kombinacije domenskog znanja i analize grafičkih prikaza, može se zaključiti da je opravdano razviti model predikcije koji će se prvenstveno oslanjati na biohemijske parametre.
+U nastavku rada biće ispitano koliko dobar prediktivni model može da se izgradi na osnovu ovih promenljivih.
+
+## Korelaciona matrica
+
+```{r}
+cor_matrix <- cor(dataset %>% 
+                    select_if(is.numeric) %>% 
+                    select(-X))
+
+cor_matrix
+```
+
+Korelaciona matrica omogućava prikaz povezanosti između numeričkih kolona.
+Na osnovu matrice može se uočiti da ALB i PROT imaju umerenu pozitivnu korelaciju od oko 0.58, što kao što je prethodno pomenuno ukazuje da se povećanje vrednosti jedne varijable uglavnom prati povećanjem druge.
+Takodje, GGT i ALP imaju umerenu pozitivnu korelaciju od oko 0.44, kao i GGT I AST(oko 0.49), što je prethodno bilo uočeno na grafičkom prikazu.
+CHE i CHOL isto imaju umerenu pozitivnu korelaciju od oko 0.42, dok ostale promenljive imaju korelaciju ispod 0.4, što pokazuje slabu linearnu povezanost među njima.
+
+## Analiza varijanse (ANOVA)
+
+Izbor parametara pomoću ANOVA (Analysis of Variance) je statistička metoda kojom se biraju najznačajniji prediktori iz skupa podataka sa ciljem poboljšanja preciznosti i brzine mašinskog modela.
+ANOVA se koristi kada skup podataka ima numeričke ulazne podatke i kategoričku ciljnu kolonu kao što je slučaj u ovom skupu podataka.
+
+```{r}
+numeric_cols <- names(dataset)[sapply(dataset, is.numeric)]
+numeric_cols <- setdiff(numeric_cols, "X")
+
+anova_results <- lapply(numeric_cols, function(col) {
+  formula <- as.formula(paste(col, "~ Target"))
+  res <- aov(formula, data = dataset)
+  summary_res <- summary(res)[[1]]
+  data.frame(
+    Feature = col,
+    F_value = summary_res["Target", "F value"],
+    p_value = summary_res["Target", "Pr(>F)"]
+  )
+})
+
+anova_table <- do.call(rbind, anova_results)
+anova_table <- anova_table[order(-anova_table$F_value), ]
+
+print(anova_table)
+```
+
+Na osnovu rezultata uočava se da je najznačajniji prediktor AST, što potvrđuje njegovu važnost kao pokazatelja oštećenja jetre.
+GGT se takođe izdvaja kao veoma snažan prediktor, kao i BIL.
+Umereno značajni prediktori su CHOL, CHE i ALB, dok su CREA i ALT slabiji, ali mogu da budu statistički značajni.
+PROT, ALP i Age ne pokazuju razliku između grupa i nisu statistički značajni.
+Ovi rezultati potvrđuju prethodne analize.
+
+# Kreiranje modela
+
+Podaci se pripremaju tako što se kategorijske promenljive pretvaraju u factor.
+
+```{r}
+dataset$Target = factor(dataset$Target)
+dataset$Sex = factor(dataset$Sex)
+```
+
+Pre kreiranja prvog modela ciljna promenljiva se prilagođava kako bi bila pogodna za primenu algoritama mašinskog učenja.
+S obzirom na to da je ciljna promenljiva svedena na dve kategorje (Blood donor i Hepatitis C), ona se kodira binarno.
+U ovom slučaju, vrednost 0 je dodeljena zdravim pacijentima, a vrednost 1 onima sa oštećenjem jetre zato što je cilj modela predikcija oštećenja jetre.
+
+```{r}
+dataset$Target_binary <- ifelse(dataset$Target == "Blood Donor", 0, 1)
+```
+
+```{r}
+dataset$Target_binary
+```
+
+Podela podataka na train:test skup u odnosu 80:20.
+Stratifikacija na osnovu kolone Target_binary.
+
+```{r}
+set.seed(123)
+train_index <- createDataPartition(dataset$Target_binary,
+                                      p = 0.8,
+                                      list = FALSE)
+
+train_bin <- dataset[train_index, ]
+test_bin  <- dataset[-train_index, ]
+```
+
+```{r}
+prop.table(table(train_bin$Target_binary))
+prop.table(table(test_bin$Target_binary))
+```
+
+## Decision Tree
+
+Primarni test model je napravljen korišćenjem svih dostupnih parametara sa ciljem ispitavanja postojanja skrivenog znanja i neočiglednih konekcija medju parametrima u slučaju njihovog izostavljanja iz prethodno sprovedenih analiza.
+
+```{r}
+tree_model_bin <- rpart(Target_binary ~ AST + ALT + GGT + BIL + ALP + ALB + CHOL + CHE + CREA + Age + Sex,
+                        method = "class",
+                        data = train_bin)
+
+summary(tree_model_bin)
+
+rpart.plot(tree_model_bin,
+           main = "Decision tree – binarna klasifikacija",
+           extra = 104)
+
+importanca <- tree_model_bin$variable.importance
+
+print(importanca)
+
+barplot(importanca, 
+        main = "Značajnost parametara u rpart modelu", 
+        col = "lightblue", 
+        las = 2) # las=2 rotira nazive osa da budu čitljivi
+```
+
+```{r}
+# Predikcija klasa na test skupu
+tree_pred <- predict(tree_model_bin,
+                     newdata = test_bin,
+                     type = "class")
+
+# Confusion matrix
+confusionMatrix(tree_pred, as.factor(test_bin$Target_binary), positive = "1")
+
+```
+
+Na test skupu decision tree postiže visoku tačnost od 93,4%, što pokazuje da model generalno veoma dobro klasifikuje pacijente.
+Kappa koeficijent od 0,74 ukazuje na dobro slaganje između predikcija modela i stvarnih vrednosti, pa se može zaključiti da model ne pogađa nasumično već zaista uči relevantne obrasce iz podataka.
+
+Osetljivost za obolele pacijente iznosi 0,93, što znači da većinu bolesnih model uspešno prepoznaje, dok je specifičnost vrlo visoka (0,93), pa model retko greši kada su u pitanju zdravi pacijenti.
+
+Negativna prediktivna vrednost je veoma visoka (0,99), što znači da je predikcija „zdrav“ uglavnom pouzdana, dok niža pozitivna prediktivna vrednost (0,66) pokazuje da predikcija bolesti nosi veću verovatnoću greške.
+
+Na osnovu modela je izracunata vaznost parametara predikcije, koja je prikazana i na grafiku.
+Nakon čega je napravljen drugi model bez korišćenja parametara koji su imali nizak stepen vaznosti.
+
+
+```{r}
+tree_model_bin2 <- rpart(Target_binary ~ AST + ALT + CHE + BIL + GGT + ALP,
+                        method = "class",
+                        data = train_bin)
+
+summary(tree_model_bin2)
+
+rpart.plot(tree_model_bin2,
+           main = "Decision tree – binarna klasifikacija",
+           extra = 104)
+```
+
+```{r}
+tree_pred2 <- predict(tree_model_bin2,
+                     newdata = test_bin,
+                     type = "class")
+
+confusionMatrix(tree_pred2, as.factor(test_bin$Target_binary), positive = "1")
+
+```
+Evaluacijom novog modela stabla odlučivanja na testnom skupu, nakon uklanjanja parametara sa najnižim stepenom važnosti, može se videti da performanse nisu unapređenje, već da su dobijeni identični rezultati kao i kod prethodnog modela.
+
+## Logistička regresija
+
+```{r}
+# Kopija podataka
+dataset_log <- dataset
+
+# Standardizacija numeričkih kolona
+num_cols <- sapply(dataset_log, is.numeric)
+num_cols["Target_binary"] <- FALSE
+dataset_log[num_cols] <- scale(dataset_log[num_cols])
+
+table(dataset_log$Target_binary)
+
+set.seed(123)
+trainIndex_log <- createDataPartition(dataset_log$Target_binary,
+                                      p = 0.8,
+                                      list = FALSE)
+
+train_log <- dataset_log[trainIndex_log, ]
+test_log  <- dataset_log[-trainIndex_log, ]
+```
+
+Napravljena je kopija podataka kako bi originalni skup ostao neizmenjen, dok su numerički atributi skalirani jer logistička regresija zavisi od skale podataka i može dati nepouzdane rezultate ako se koriste neujednačene vrednosti.
+
+```{r}
+log_model <- glm(Target_binary ~ AST + ALT + GGT + BIL + ALP + ALB + CHOL + CHE + CREA + Age + Sex, 
+                 data = train_log, 
+                 family = binomial)
+
+summary(log_model)
+```
+
+Rezultati logističke regresije pokazuju da su AST, GGT i BIL statistički značajni prediktori pojave oboljenja jetre, dok ALT ima negativan uticaj na verovatnoću pripadnosti klasi obolelih.
+Sa druge strane, ALB se ne pokazuje kao značajan prediktor u okviru ovog modela.
+
+```{r}
+# Predikcija verovatnoća
+log_pred_prob <- predict(log_model,
+                         newdata = test_log,
+                         type = "response")
+
+# Binarna odluka (koristimo 0 i 1 da se poklopi sa Target_binary)
+log_pred <- ifelse(log_pred_prob > 0.5, 1, 0)
+
+# Confusion matrix
+# Pretvaramo oba u faktor sa istim nivoima (0 i 1)
+confusionMatrix(
+  factor(log_pred, levels = c(0, 1)),
+  factor(test_log$Target_binary, levels = c(0, 1)),
+  positive = "1"
+)
+```
+
+Na testnom skupu logistička regresija postiže visoku ukupnu tačnost od 93,4%, što na prvi pogled deluje kao veoma dobar rezultat.
+Međutim, pošto u podacima ima mnogo više zdravih nego bolesnih pacijenata, sama tačnost nije dovoljna da bismo ocenili kvalitet modela.
+Zbog toga su važnije mere osetljivosti i specifičnosti, jer bolje pokazuju kako model greši.
+Model ima nižu osetljivost za obolele pacijente (Sensitivity = 0.67).
+Sa druge strane, specifičnost je znatno viša i iznosi 0.97, što znači da model gotovo nepogrešivo prepoznaje zdrave pacijente i retko ih svrstava u grupu obolelih.
+Kappa koeficijent od 0.67 pokazuje da model ima umereno dobro slaganje sa stvarnim dijagnozama, ali da i dalje postoji prostor za poboljšanje.
+Sve zajedno, ovi rezultati pokazuju da model generalno dobro radi, ali ima jasna ograničenja u prepoznavanju bolesnih pacijenata, pa bi bio korisniji kao pomoćni alat za skrining nego kao konačna medicinska odluka..
+
+```{r}
+library(pROC)
+
+# Logistic regression ROC
+roc_lr <- roc(
+  test_log$Target_binary,
+  log_pred_prob,
+  levels = c(0, 1),
+  direction = "<"
+)
+
+# Decision Tree ROC
+tree_prob <- predict(tree_model_bin, test_bin, type = "prob")[, "1"]
+
+roc_dt <- roc(
+  test_bin$Target_binary,
+  tree_prob,
+  levels = c(0, 1),
+  direction = "<"
+)
+
+# Plotovanje
+plot(roc_lr, col = "blue", lwd = 2, main = "ROC upoređivanje: LR vs Decision Tree")
+lines(roc_dt, col = "red", lwd = 2)
+
+# Legenda sa dinamičkim AUC vrednostima
+legend("bottomright",
+       legend = c(
+         paste("Logistička regresija (AUC =", round(auc(roc_lr), 3), ")"),
+         paste("Decision Tree (AUC =", round(auc(roc_dt), 3), ")")
+       ),
+       col = c("blue", "red"),
+       lwd = 2)
+```
+
+Na osnovu ROC krivih može se uočiti da oba modela ostvaruju veoma dobre performanse klasifikacije, jer se njihove krive nalaze znatno iznad dijagonale koja predstavlja slučajnu klasifikaciju.
+Logistička regresija ima veću AUC vrednost (AUC = 0.981) u poređenju sa decision tree modelom (AUC = 0.943), što ukazuje da logistička regresija u proseku bolje rangira posmatranja po verovatnoći pripadnosti klasi obolelih, nezavisno od izabranog praga.
+
+Međutim, iako logistička regresija ima višu ukupnu diskriminativnu moć, decision tree model pokazuje konkurentne performanse i ostvaruje dobar balans između osetljivosti i specifičnosti u relevantnom delu ROC prostora.
+Razlika između krivih je relativno mala, što sugeriše da oba modela pružaju pouzdane predikcije, ali sa različitim prednostima u zavisnosti od kriterijuma evaluacije.
+
+## Random Forest
+
+Random Forest koristi niz odluka donešenih od strane više stabala odluke kako bi došao do konačne odluke odnosno predikcije.
+Kao i kod Decision Tree, ne zahteva skaliranje numeričkih vrednosti jer se podele unutar stabala vrše na osnovu pragova vrednosti.
+Model je napravljen korišćenjem svih dostupnih parametara sa ciljem izracunavanja vaznost parametara predikcije.
+
+```{r}
+train_bin$Target_binary <- factor(train_bin$Target_binary)
+test_bin$Target_binary  <- factor(test_bin$Target_binary)
+
+set.seed(123) 
+rf_model <- randomForest(
+  formula = Target_binary ~ AST + ALT + GGT + BIL + ALP + ALB + CHOL + CHE + CREA + Age + Sex,
+  data = train_bin, 
+  ntree = 50,
+  importance = TRUE
+)
+
+print(rf_model)
+
+importance(rf_model)
+varImpPlot(rf_model, main = "Značajnost parametara u RF modelu")
+```
+
+```{r}
+predictions <- predict(rf_model, test_bin)
+
+predictions <- as.factor(predictions)
+test_bin$Target_binary <- as.factor(test_bin$Target_binary)
+
+confusionMatrix(predictions, test_bin$Target_binary, positive = "1")
+```
+
+Na test skupu Random Forest model ostvaruje visoku tačnost klasifikacije (98.36%).
+
+Osetljivost (Sensitivity = 0,73) pokazuje da model uspešno prepoznaje oko 73,3% stvarnih slučajeva oboljenja jetre, dok je specifičnost (Specificity = 0,99) izuzetno visoka, što potvrđuje da model gotovo nepogrešivo identifikuje zdrave pacijente.
+Takodje je i specifičnost je visoka (Specificity = 0.9333), što ukazuje na mali broj lažno pozitivnih predikcija.
+
+Kappa koeficijent (0,79) i Balanced Accuracy (0,86) ukazuju na dobro slaganje između stvarnih i predviđenih klasa, čak i kada se uzme u obzir disbalans klasa.
+
+Kao i na osnovu prethodnih analiza, analiza značajnosti prediktora pokazuje da je promenljiva AST najznačajnija za donošenje odluka u modelu, jer ima najveće vrednosti i za Mean Decrease Accuracy i za Mean Decrease Gini. Drugi model je napravljen bez korišćenja parametara koji su imali najniži stepen važnosti.
+
+```{r}
+train_bin$Target_binary <- factor(train_bin$Target_binary)
+test_bin$Target_binary  <- factor(test_bin$Target_binary)
+
+set.seed(123) 
+rf_model2 <- randomForest(
+  formula = Target_binary ~ AST + ALT + GGT + BIL + ALP + CHE,
+  data = train_bin, 
+  ntree = 50,
+  importance = TRUE
+)
+
+print(rf_model2)
+
+importance(rf_model2)
+varImpPlot(rf_model2, main = "Značajnost parametara u RF modelu")
+```
+
+```{r}
+predictions2 <- predict(rf_model2, test_bin)
+
+predictions2 <- as.factor(predictions2)
+test_bin$Target_binary <- as.factor(test_bin$Target_binary)
+
+confusionMatrix(predictions2, test_bin$Target_binary, positive = "1")
+```
+Na test skupu novi Random Forest model ostvaruje veoma visoku tačnost klasifikacije (96.72%), što nam ukazuje na veoma pouzdano razdvajanje klasa.
+
+Model pokazuje veoma visoku osetljivost za klasu pacijenata sa oštećenjem jetre (86,67), što znači da uspešno identifikuje 86,67% pacijenata sa oštećenjem jetre.
+Takodje je i specifičnost je visoka (98,13%), što ukazuje na veoma mali broj lažno pozitivnih predikcija.
+
+Kappa koeficijent (0.848) ukazuje na veoma dobro slaganje između stvarnih i predviđenih klasa. Balanced accuracy (0.924) dodatno potvrđuje da model postiže veoma dobre performanse na obe klase.
+
+Zaključuje se da Random Forest model pokazuje bolju generalizaciju u odnosu na pojedinačno decision tree stablo, uz manju osetljivost na šum i varijacije u podacima.
+Ovo ga čini veoma pogodnim za praktičnu primenu u predikciji oboljenja jetre.
+
+# Zaključak
+
+Cilj analize bio je da se ispita koliko dobro različiti modeli mašinskog učenja mogu da predvide da li pacijent pripada grupi zdravih ili obolelih na osnovu vrednosti jetrenih enzima.
+Na osnovu svih sprovedenih analiza može se zaključiti da je klasifikacija moguća sa visokom tačnošću, pri čemu su AST, ALT i GGT najvažniji prediktori u modelima.
+
+Pojedinačno stablo odlučivanja dalo je dobar i interpretabilan model, ali je pokazalo određenu nestabilnost u manjim podgrupama podataka.
+Logistička regresija je imala visoku ukupnu tačnost i najbolju AUC vrednost na ROC krivoj, što znači da dobro rangira pacijente po riziku, ali je slabije prepoznavala obolele zbog neravnoteže klasa.
+
+Najbolje rezultate je dao Random Forest model, koji je postigao najveću tačnost, visoku osetljivost i specifičnost, kao i veoma dobru Kappa vrednost.
+Zbog toga je Random Forest najpouzdaniji model za predikciju oboljenja jetre u ovom skupu podataka, jer bolje generalizuje na nove slučajeve i manje je osetljiv na šum u podacima.
