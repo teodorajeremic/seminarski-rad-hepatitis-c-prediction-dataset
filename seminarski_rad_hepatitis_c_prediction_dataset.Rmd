@@ -1,8 +1,8 @@
 ---
 title: "Seminarski rad - Hepatitis C Prediction Dataset"
 output:
-  word_document: default
   html_document: default
+  word_document: default
 date: "2025-12-15"
 editor_options: 
   markdown: 
