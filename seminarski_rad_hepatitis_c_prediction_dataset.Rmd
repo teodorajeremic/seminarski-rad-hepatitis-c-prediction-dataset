@@ -39,6 +39,8 @@ library(randomForest)
 library(caret)
 library(pROC)
 library(mice)
+library(themis)
+library(MLmetrics)
 ```
 
 ## Učitavanje skupa podataka
@@ -113,6 +115,38 @@ Ciroza je najteži i hronični stadijum oboljenja jetre, karakterisan trajnim o�
 
 Na osnovu promenljive Category moguće je sprovesti statističke analize, kao i razvijati modele mašinskog učenja sa ciljem predikcije zdravstvenog statusa pacijenata i ranog otkrivanja oboljenja jetre.
 
+**Provera odnosa ALB i PROT**
+
+Ovaj korak obuhvata proveru odnos izmedju albumina, najzastupljenijeg proteina u krvi, i ukupnih proteina.
+Ukupni proteini u krvi predstavljaju ukupnu količinu albumina i globulina u organizmu.
+Kako je albumin samo jedan od proteina njegova vrednost ne može prelaziti vrednost ukupnih proteina.
+
+```{r}
+greske_alb_prot <- dataset[which(dataset$ALB > dataset$PROT), ]
+nrow(greske_alb_prot)
+```
+
+```{r}
+greske_alb_prot
+```
+
+Analiza je identifikovala samo jednu opservaciju koja narušava biološki odnos.
+Na grafiku je vizuelno prikazan red u kom se nalazi pacijent kojem je albumin veći od ukupnih proteina.
+
+```{r}
+ggplot(dataset, aes(x = PROT, y = ALB)) +
+  geom_point(alpha = 0.5) +
+  geom_abline(color = "red") 
+```
+
+Identifikovana opservacija koja narušava logičko pravilo obrisana je iz daljeg procesa analize.
+
+```{r}
+dataset <- dataset[dataset$X != 217, ]
+
+nrow(dataset[dataset$X == 217, ])
+```
+
 # Priprema podataka
 
 ## Nedostajuće vrednosti
@@ -164,7 +198,23 @@ table(dataset$Sex)
 sum(is.na(dataset$Sex) | dataset$Sex == "")
 ```
 
-Rezultati analize potvrđuju odsustvo neočekivanih kategorija, NA vrednosti i paznih polja unutar kolona Category i Sex
+Rezultati analize potvrđuju odsustvo neočekivanih kategorija, NA vrednosti i paznih polja unutar kolona Category i Sex.
+
+Provera da li postoje redovi koji imaju više nedostajućih vrednosti
+
+```{r}
+na_po_redu <- rowSums(is.na(dataset))
+
+broj_losih_redova <- sum(na_po_redu > 1)
+
+procenat_losih <- (broj_losih_redova / nrow(dataset)) * 100
+
+losi_redovi_data <- dataset[na_po_redu > 1, ]
+
+print(losi_redovi_data)
+```
+Iako su identifikovana tri reda sa više nedostajućih vrednosti, bolje je da se oni ne brišu iz skupa podataka, jer pripadaju manjinskim klasama.
+
 
 Nakon identifikacije nedostajućih vrednosti, umesto primene univarijantnih metoda poput zamene srednjom vrednošću ili medijanom, primenjen je MICE algoritam (*Multivariate Imputation by Chained Equations*).
 Zamena srednjom vrednošću ili medijanom smanjuje varijansu podataka jer sve nedostajuće vrednosti postaju identične, dok MICE svakoj nedostajućoj vrednosti dodeljuje jedinstvenu vrednost na osnovu korelacije sa ostalim kolonama.
@@ -901,37 +951,6 @@ Eksplorativna analiza pokazala je da većina biohemijskih parametara ima izraže
 Nakon uradjene univarijantne analize, kojom su identifikovane ekstremne vrednosti u okviru pojedinačnih laboratorijskih parametara, proces se nastavlja implementacijom logičke analize odnosa između različitih parametara.
 Dok univarijantni pristup detektuje vrednosti koje odstupaju od proseka, bivarijantna i multivarijantna analiza omogućavaju uočavanje onih podataka koji su unutar "normalnih" granica kada se posmatraju izolovano, ali formiraju medicinski nemoguće ili sumnjive kombinacije.
 
-**Provera odnosa ALB i PROT**
-
-Ovaj korak obuhvata proveru odnos izmedju albumina, najzastupljenijeg proteina u krvi, i ukupnih proteina.
-Ukupni proteini u krvi predstavljaju ukupnu količinu albumina i globulina u organizmu.
-Kako je albumin samo jedan od proteina njegova vrednost ne može prelaziti vrednost ukupnih proteina.
-
-```{r}
-greske_alb_prot <- dataset[which(dataset$ALB > dataset$PROT), ]
-nrow(greske_alb_prot)
-```
-
-```{r}
-greske_alb_prot
-```
-
-Analiza je identifikovala samo jednu opservaciju koja narušava biološki odnos.
-Na grafiku je vizuelno prikazan red u kom se nalazi pacijent kojem je albumin veći od ukupnih proteina.
-
-```{r}
-ggplot(dataset, aes(x = PROT, y = ALB)) +
-  geom_point(alpha = 0.5) +
-  geom_abline(color = "red") 
-```
-
-Identifikovana opservacija koja narušava logičko pravilo obrisana je iz daljeg procesa analize.
-
-```{r}
-dataset <- dataset[dataset$X != 217, ]
-
-nrow(dataset[dataset$X == 217, ])
-```
 
 **Kolona Category - izlazna kolona**
 
@@ -1592,6 +1611,80 @@ Kappa koeficijent (0.848) ukazuje na veoma dobro slaganje između stvarnih i pre
 
 Zaključuje se da Random Forest model pokazuje bolju generalizaciju u odnosu na pojedinačno decision tree stablo, uz manju osetljivost na šum i varijacije u podacima.
 Ovo ga čini veoma pogodnim za praktičnu primenu u predikciji oboljenja jetre.
+
+## Cross validation
+
+Kros-validacija je primenjena kako bi se preciznije ispitalo da li originalni model (Random Forest) overfittuje. Ovim postupkom je svakom podatku omogućeno da se nađe i u trening i u test skupu. Izbegava se slučajnost pri podeli podataka i dobija se pouzdanija ocena performansi modela.
+
+```{r}
+train_bin$Target_binary <- factor(train_bin$Target_binary, labels = c("Class0", "Class1"))
+test_bin$Target_binary <- factor(test_bin$Target_binary, labels = c("Class0", "Class1"))
+
+train_control <- trainControl(
+  method = "cv",
+  number = 5,
+  savePredictions = "final",
+  classProbs = TRUE,
+  summaryFunction = multiClassSummary 
+)
+
+set.seed(123)
+rf_cv_model <- train(
+  Target_binary ~ AST + ALT + GGT + BIL + ALP + ALB + CHOL + CHE + CREA + Age + Sex,
+  data = train_bin,
+  method = "rf",
+  ntree = 50,
+  trControl = train_control,
+  metric = "F1" # Tells caret to optimize for F1 score
+)
+
+mean_metrics <- rf_cv_model$results
+
+cat("Mean Accuracy across 5 folds:", mean_metrics$Accuracy[2], "\n")
+cat("Mean F1-score across 5 folds:", mean_metrics$F1[2], "\n")
+
+print(rf_cv_model)
+
+varImpPlot(rf_cv_model$finalModel, main = "Značajnost parametara (5-Fold CV)")
+
+predictions <- predict(rf_cv_model, newdata = test_bin)
+confusionMatrix(predictions, test_bin$Target_binary, positive = "Class1")
+```
+Kroz 5-fold kros-validaciju izračunat je prosek tačnosti i F1-score-a izmedju svakog folda. Dobijeni su identični rezultati kao pre. To potvrdjuje validnost našeg pristupa. 
+
+## SMOTE metoda u cross validaciji
+
+Primenjena je SMOTE (Synthetic Minority Over-sampling Technique) metoda jer klasični algoritmi, poput Random Forest-a, često postaju pristrasni prema većinskoj klasi.SMOTE kreira nove, sintetičke primere tako što pronalazi slične postojeće instance manjinske klase i „ispunjava“ prostor između njih novim tačkama podataka. SMOTE se primenjuje isključivo unutar kros-validacije, i to unutar svakog pojedinačnog folda trening skupa.
+
+```{r}
+train_control_smote <- trainControl(
+  method = "cv",
+  number = 5,
+  savePredictions = "final",
+  classProbs = TRUE,
+  summaryFunction = multiClassSummary,
+  sampling = "smote" 
+)
+
+set.seed(123)
+rf_smote_model <- train(
+  Target_binary ~ AST + ALT + GGT + BIL + ALP + ALB + CHOL + CHE + CREA + Age + Sex,
+  data = train_bin,
+  method = "rf",
+  ntree = 50,
+  trControl = train_control_smote,
+  metric = "F1" # Optimizujemo prema F1 jer su klase nebalansirane
+)
+
+# Provera rezultata
+print(rf_smote_model)
+
+# Evaluacija na test setu
+predictions_smote <- predict(rf_smote_model, newdata = test_bin)
+confusionMatrix(predictions_smote, test_bin$Target_binary, positive = "Class1")
+```
+
+Dobijeni rezultati su ostali stabilni i nakon uvođenja sintetičkih primera, potvrđuje da je omogućio modelu da objektivno i precizno prepoznaje manjinsku klasu. Ovo potvrđuje validnost našeg pristupa u rešavanju problema neuravnoteženosti podataka.
 
 # Zaključak
 
