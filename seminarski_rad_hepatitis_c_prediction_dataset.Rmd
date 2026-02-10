@@ -69,23 +69,49 @@ U skupu podataka se nalazi 12 numeričkih promenljivih (int, num) i 2 kategorijs
 ```{r}
 str(dataset)
 ```
+##Opis skupa podataka
 
-Skup podataka sadrži sledeće kolone:
+Skup podataka sadrži ukupno 14 promenljivih koje obuhvataju demografske karakteristike pacijenata, kao i relevantne biohemijske parametre krvi povezane sa funkcijom jetre. Opis pojedinačnih promenljivih dato je u nastavku:
 
-1.  X – numerička promenljiva koja označava jedinstveni identifikacioni broj pacijenta
-2.  Category – kategorijska promenljiva koja označava zdravstveni status pacijenta (0 – davalac krvi, 0s – sumnjivi davalac krvi, 1 – Hepatitis, 2 – Fibroza, 3 – Ciroza)
-3.  Age – numerička promenljiva koja označava starost pacijenta u godinama
-4.  Sex – kategorijska promenljiva koja označava pol pacijenta (m – muški, f – ženski)
-5.  ALB – numerička promenljiva koja označava koncentraciju albumina u krvi
-6.  ALP – numerička promenljiva koja označava nivo alkalne fosfataze u krvi
-7.  ALT – numerička promenljiva koja označava nivo alanin-aminotransferaze u krvi
-8.  AST – numerička promenljiva koja označava nivo aspartat-aminotransferaze u krvi
-9.  BIL – numerička promenljiva koja označava nivo bilirubina u krvi
-10. CHE – numerička promenljiva koja označava nivo holinesteraze u krvi
-11. CHOL – numerička promenljiva koja označava nivo holesterola u krvi
-12. CREA – numerička promenljiva koja označava nivo kreatinina u krvi
-13. GGT – numerička promenljiva koja označava nivo gama-glutamil transferaze u krvi
-14. PROT – numerička promenljiva koja označava ukupnu koncentraciju proteina u krvi
+X – numerička promenljiva koja predstavlja jedinstveni identifikacioni broj pacijenta
+Category – kategorijska promenljiva koja označava zdravstveni status pacijenta
+Age – numerička promenljiva koja označava starost pacijenta u godinama
+Sex – kategorijska promenljiva koja označava pol pacijenta (m – muški, f – ženski)
+ALB – koncentracija albumina u krvi
+ALP – nivo alkalne fosfataze u krvi
+ALT – nivo alanin-aminotransferaze u krvi
+AST – nivo aspartat-aminotransferaze u krvi
+BIL – nivo bilirubina u krvi
+CHE – nivo holinesteraze u krvi
+CHOL – nivo holesterola u krvi
+CREA – nivo kreatinina u krvi
+GGT – nivo gama-glutamil transferaze u krvi
+PROT – ukupna koncentracija proteina u krvi
+
+Većina navedenih biohemijskih parametara predstavlja značajne pokazatelje oštećenja i funkcije jetre, te su od ključnog značaja za analizu i predikciju oboljenja jetre.
+
+#Promenljiva Category
+
+Promenljiva Category predstavlja ciljnu promenljivu u ovom skupu podataka i služi za kliničku klasifikaciju pacijenata prema stanju jetre. Klasifikacija je izvršena na osnovu laboratorijskih nalaza krvi i medicinske dijagnostike, sa posebnim fokusom na oboljenja jetre izazvana virusom hepatitisa C.
+
+Vrednosti promenljive Category označavaju sledeće zdravstvene statuse:
+
+0 – Davalac krvi
+Ova kategorija obuhvata zdrave osobe kod kojih laboratorijski parametri jetre ne pokazuju patološka odstupanja. Ovi ispitanici predstavljaju referentnu, odnosno kontrolnu grupu u analizi.
+
+0s – Sumnjivi davalac krvi
+U ovu grupu spadaju osobe kod kojih su prisutna manja odstupanja u pojedinim biohemijskim parametrima, ali bez jasnih dokaza postojanja oboljenja jetre. Ova kategorija ukazuje na potencijalno rizično stanje koje zahteva dodatno praćenje i dalju dijagnostiku.
+
+1 – Hepatitis
+Ova kategorija obuhvata pacijente kod kojih je dijagnostikovan hepatitis C, pri čemu je prisutna upala jetre, ali bez razvijenih trajnih strukturnih oštećenja. Laboratorijski nalazi često ukazuju na povišene vrednosti jetrenih enzima.
+
+2 – Fibroza
+Fibroza predstavlja napredniji stadijum oboljenja jetre, u kojem dolazi do stvaranja ožiljnog tkiva kao posledice dugotrajne upale. Funkcija jetre je delimično narušena, ali stanje još uvek nije nepovratno.
+
+3 – Ciroza
+Ciroza je najteži i hronični stadijum oboljenja jetre, karakterisan trajnim oštećenjem jetrenog tkiva i značajnim smanjenjem funkcije jetre. U ovom stadijumu laboratorijski parametri često pokazuju izrazita odstupanja, a stanje može biti životno ugrožavajuće.
+
+Na osnovu promenljive Category moguće je sprovesti statističke analize, kao i razvijati modele mašinskog učenja sa ciljem predikcije zdravstvenog statusa pacijenata i ranog otkrivanja oboljenja jetre.
 
 # Priprema podataka
 
@@ -251,660 +277,624 @@ Na osnovu tabele učestalosti i grafika se može uočiti da u skupu podataka ima
 
 **Kolona ALB**
 
+Promenljiva ALB predstavlja koncentraciju albumina u krvi, izraženu u gramima po litru (g/L). Albumin je najzastupljeniji protein u krvnoj plazmi i ima ključnu ulogu u održavanju osmotskog pritiska, transportu različitih supstanci (hormona, lekova, masnih kiselina) i opštoj metaboličkoj ravnoteži organizma. Albumin se sintetiše u jetri, zbog čega njegova koncentracija predstavlja značajan indikator funkcionalnog stanja jetre.
+
+Referentne vrednostii
+Kod zdravih odraslih osoba, referentne vrednosti albumina u krvi obično se kreću u opsegu od 35 do 50 g/L.
+Vrednosti ispod donje granice mogu ukazivati na:
+1.hronična oboljenja jetre,
+2.cirozu,
+3.pothranjenost ili hronične upalne procese.
+
+Povišene vrednosti albumina su ređe i najčešće se dovode u vezu sa:
+1.dehidratacijom,
+2.gubitkom telesne tečnosti.
+
+Zbog toga je parametar ALB od posebnog značaja u analizi pacijenata sa hepatitisom C i drugim oboljenjima jetre.
+
+Deskriptivna statistika promenljive ALB
 ```{r}
 summary(dataset$ALB)
 ```
 
-Vrednosti parametra ALB su u rasponu od 14.9 do 82.2.
-Srednja vrednost iznosi 41.62, dok je medijana 41.95, što ukazuje na približno simetričnu raspodelu bez izražene asimetrije.
-Većina pacijenata ima vrednosti ALB koncentrisane oko srednjih vrednosti.
+Vrednosti parametra ALB u posmatranom skupu podataka kreću se u rasponu od 14.9 do 82.2 g/L. Srednja vrednost iznosi 41.62 g/L, dok je medijana 41.95 g/L, što ukazuje na približno simetričnu raspodelu podataka bez izražene asimetrije. Većina pacijenata ima vrednosti albumina koncentrisane oko srednjih vrednosti, koje se u velikoj meri poklapaju sa referentnim opsegom za zdravu populaciju.
 
-Grafički prikaz raspodele pacijenata u odnosu na ALB
-
+Grafički prikaz raspodele vrednosti ALB
 ```{r}
 ggplot(dataset, aes(x = ALB)) +
   geom_histogram(bins = 30) +
-  labs(title = "Histogram raspodele ALB")
+  labs(title = "Histogram raspodele vrednosti albumina (ALB)",
+       x = "ALB (g/L)",
+       y = "Broj pacijenata")
 ```
 
-Na grafiku se može videti da najveći broj pacijenata ima vrednost ALB u opsegu između 35 i 50.
-Raspodela je relativno simetrična, uz prisustvo nekoliko ekstremnih vrednosti, što može ukazivati na potencijalne odstupajuće vrednosti u podacima.
+Histogram pokazuje da najveći broj pacijenata ima vrednosti albumina u intervalu od 35 do 50 g/L, što odgovara normalnim referentnim vrednostima. Raspodela je relativno simetrična, uz prisustvo manjeg broja ekstremnih vrednosti na oba kraja raspodele.
 
-Primenjena je provera prisustva odstupajućih vrednosti
-
+Detekcija odstupajućih vrednosti (outlajera)
 ```{r}
-
-#Izračunavanje kvartila
 
 Q1 <- quantile(dataset$ALB, 0.25, na.rm = TRUE)
 Q3 <- quantile(dataset$ALB, 0.75, na.rm = TRUE)
 IQR_val <- Q3 - Q1
 
-#Određivanje granica za outlajere
-
 donja_granica <- Q1 - 1.5 * IQR_val
 gornja_granica <- Q3 + 1.5 * IQR_val
 
-#Prikaz donje i gornje granice
-
 donja_granica
 gornja_granica
+```
+Donji kvartil iznosi 29.2 g/L, dok gornji kvartil iznosi 54.8 g/L.
 
-#Pronalaženje outlajera
-
+```{r}
 outliers <- dataset$ALB[dataset$ALB < donja_granica | dataset$ALB > gornja_granica]
-
-#Broj outlajera
-
 length(outliers)
 outliers
 
 ```
+Na osnovu IQR kriterijuma identifikovano je 27 odstupajućih vrednosti, što ukazuje na povećanu varijabilnost koncentracije albumina među pacijentima.
 
-Rezultati dobijeni za kolonu ALB pokazuju da je donji kvartil je 29.2, a gornji kvartil 54.8.
-IQR metodom identifikovano je 27 odstupajućih vrednosti, što ukazuje na veću varijabilnost podataka.
-
-Boxplot za vizuelnu detekciju odstupajućih vrednosti
-
+Boxplot analiza
 ```{r}
-
-boxplot(dataset$ALB, main = "Boxplot za ALB", horizontal = TRUE)
+boxplot(dataset$ALB,
+        main = "Boxplot koncentracije albumina (ALB)",
+        horizontal = TRUE)
 ```
+Boxplot vizuelno potvrđuje prisustvo većeg broja odstupajućih vrednosti, naročito na donjem delu raspodele, dok se manji broj ekstremnih vrednosti uočava i na gornjem kraju. S obzirom na to da se radi o kliničkom parametru direktno povezanom sa funkcijom jetre, ove vrednosti najverovatnije predstavljaju stvarna patološka stanja pacijenata, a ne greške u merenju.
 
-Boxplot za kolonu ALB vizuelno potvrđuje prisustvo većeg broja odstupajućih vrednosti, koji su najizraženiji na donjem kraju raspodele, dok se nekoliko ekstremnih vrednosti uočava i na gornjem kraju.
-S obzirom da se radi o kliničkom parametru, ove vrednosti najverovatnije predstavljaju stvarna odstupanja povezana sa zdravstvenim stanjem pacijenata, a ne greške u merenju.
-Zbog toga odstupajuće vrednosti neće biti uklonjene iz dalje analize, kako bi se zadržala potpuna informacija o varijabilnosti podataka.
+Iz tog razloga, odstupajuće vrednosti nisu uklonjene iz dalje analize, kako bi se očuvala kompletna informacija o varijabilnosti podataka i omogućila preciznija analiza zdravstvenog statusa pacijenata.
 
 **Kolona ALP**
 
+Promenljiva ALP predstavlja nivo alkalne fosfataze u krvi, izražen u međunarodnim jedinicama po litru (U/L). Alkalna fosfataza je enzim koji se nalazi u više tkiva, prvenstveno u jetri, žučnim kanalima i kostima. U kliničkoj praksi, povišene vrednosti ALP često su povezane sa poremećajima u radu jetre i žučnih puteva, naročito kod opstrukcije žuči i hroničnih oboljenja jetre.
+
+Referentne vrednosti
+
+Referentne vrednosti ALP kod odraslih osoba najčešće se kreću u opsegu od 44 do 147 U/L, pri čemu blaga odstupanja mogu zavisiti od starosti i pola.
+Povišene vrednosti ALP mogu ukazivati na:
+1.oštećenje jetre ili žučnih puteva,
+2.holestazu,
+3.cirozu jetre.
+
+Zbog toga je ALP značajan biohemijski marker u analizi pacijenata sa hepatitisom C.
+
+Deskriptivna statistika promenljive ALP
 ```{r}
 summary(dataset$ALP)
 ```
 
-Vrednosti parametra ALP su u rasponu od 11.30 do 416.60.
-Srednja vrednost iznosi 66.20, dok je medijana 68.22, što ukazuje na relativno simetričnu raspodelu centralnog dela podataka, uz prisustvo blage desne asimetrije.
+Vrednosti parametra ALP u posmatranom skupu podataka kreću se u rasponu od 11.30 do 416.60 U/L. Srednja vrednost iznosi 66.20 U/L, dok je medijana 68.22 U/L, što ukazuje na relativno simetričnu raspodelu centralnog dela podataka, uz prisustvo blage desne asimetrije.
 
-Grafički prikaz raspodele pacijenata u odnosu na ALP
-
+Grafički prikaz raspodele vrednosti ALP
 ```{r}
 ggplot(dataset, aes(x = ALP)) +
   geom_histogram(bins = 30) +
-  labs(title = "Histogram raspodele ALP")
+  labs(title = "Histogram raspodele vrednosti alkalne fosfataze (ALP)",
+       x = "ALP (U/L)",
+       y = "Broj pacijenata")
 ```
+Histogram pokazuje da najveći broj pacijenata ima vrednosti ALP u opsegu od 50 do 100 U/L, dok se kod manjeg broja pacijenata uočavaju znatno povišene vrednosti. Raspodela ima izražen rep ka višim vrednostima, što ukazuje na prisustvo odstupajućih vrednosti.
 
-Na grafiku se može videti da najveći broj pacijenata ima vrednost ALP u opsegu između 50 i 100.
-Raspodela ima izražen rep ka višim vrednostima, uz prisustvo nekoliko veoma visokih vrednosti, što ukazuje prisustvo odstuajućih vrednosti u podacima.
-
-Primenjena je provera prisustva odstupajućih vrednosti
-
+Detekcija odstupajućih vrednosti
 ```{r}
-
-#Izračunavanje kvartila
-
 Q1 <- quantile(dataset$ALP, 0.25, na.rm = TRUE)
 Q3 <- quantile(dataset$ALP, 0.75, na.rm = TRUE)
 IQR_val <- Q3 - Q1
 
-#Određivanje granica za outlajere
-
 donja_granica <- Q1 - 1.5 * IQR_val
 gornja_granica <- Q3 + 1.5 * IQR_val
 
-#Prikaz donje i gornje granice
-
 donja_granica
 gornja_granica
-
-#Pronalaženje outlajera
-
-outliers <- dataset$ALP[dataset$ALP < donja_granica | dataset$ALP > gornja_granica]
-
-#Broj outlajera
-
-length(outliers)
-outliers
-
 ```
-
-Rezultati dobijeni za kolonu ALP pokazuju da donji kvartil iznosi 13.425, dok je gornji kvartil 118.825.
-Primenom IQR metode identifikovano je ukupno 14 odstupajućih vrednosti.
-To ukazuje na postojanje vrednosti koje odstupaju od većine podataka, ali njihov broj nije izrazito velik u odnosu na ukupan uzorak.
-
-Boxplot za vizuelnu detekciju odstupajućih vrednosti
+Donji kvartil iznosi 10.35 U/L, dok je gornji kvartil 122.75 U/L. 
 
 ```{r}
-
-boxplot(dataset$ALP, main = "Boxplot za ALP", horizontal = TRUE)
+outliers <- dataset$ALP[dataset$ALP < donja_granica | dataset$ALP > gornja_granica]
+length(outliers)
+outliers
 ```
+Primenom IQR metode identifikovano je ukupno 11 odstupajućih vrednosti, što ukazuje na prisustvo pojedinačnih ekstremnih vrednosti u odnosu na većinu podataka.
 
-Boxplot za ALP ukazuje na desno asimetričnu raspodelu sa nekoliko visokih odstupajućih vrednosti.
-S obzirom da je ALP biohemijski parametar, ove ekstremne vrednosti mogu predstavljati realna klinička odstupanja, a ne greške u merenju, iz tog razloga odstupajuće vrednosti neće biti uklonjene iz dalje analize.
+Boxplot analiza (ALP)
+```{r}
+boxplot(dataset$ALP,
+        main = "Boxplot vrednosti alkalne fosfataze (ALP)",
+        horizontal = TRUE)
+
+```
+Boxplot za promenljivu ALP ukazuje na desno asimetričnu raspodelu sa nekoliko visokih odstupajućih vrednosti. S obzirom na klinički značaj ovog enzima, ove ekstremne vrednosti najverovatnije predstavljaju realna patološka stanja, a ne greške u merenju, zbog čega nisu uklonjene iz dalje analize.
 
 **Kolona ALT**
 
+Promenljiva ALT predstavlja nivo alanin-aminotransferaze, enzima koji se pretežno nalazi u ćelijama jetre i smatra se jednim od najosetljivijih pokazatelja oštećenja jetrenog tkiva. Povišene vrednosti ALT ukazuju na oštećenje hepatocita i često su prisutne kod pacijenata sa hepatitisom C.
+
+Referentne vrednosti
+
+Kod zdravih odraslih osoba, referentne vrednosti ALT najčešće se kreću u opsegu od:
+-do 41 U/L kod muškaraca
+-do 33 U/L kod žena
+
+Značajno povišene vrednosti ALT najčešće su povezane sa:
+-akutnim i hroničnim hepatitisom,
+-cirozom jetre,
+-drugim oboljenjima jetre.
+
+Deskriptivna statistika promenljive ALT
 ```{r}
 summary(dataset$ALT)
 ```
 
-Vrednosti parametra ALT su u rasponu od 0.90 do 325.30.
-Srednja vrednost iznosi 28.44, dok je medijana 23.00.
-Srednja vrednost je primetno veća od medijane, pa se može zaključiti da raspodela pokazuje izrazitu desnu asimetriju.
+Vrednosti parametra ALT u skupu podataka kreću se u rasponu od 0.90 do 325.30 U/L. Srednja vrednost iznosi 28.44 U/L, dok je medijana 23.00 U/L. Srednja vrednost je primetno veća od medijane, što ukazuje na izraženu desnu asimetriju raspodele..
 
-Grafički prikaz raspodele pacijenata u odnosu na ALT
-
+Grafički prikaz raspodele vrednosti ALT
 ```{r}
 ggplot(dataset, aes(x = ALT)) +
   geom_histogram(bins = 30) +
-  labs(title = "Histogram raspodele ALT")
+  labs(title = "Histogram raspodele vrednosti ALT",
+       x = "ALT (U/L)",
+       y = "Broj pacijenata")
 ```
+Histogram pokazuje da najveći broj pacijenata ima vrednosti ALT u opsegu od 15 do 40 U/L, dok se kod manjeg broja pacijenata javljaju veoma visoke vrednosti, koje formiraju izražen rep raspodele ka višim vrednostima.
 
-Na grafiku se može videti da najveći broj pacijenata ima vrednost ALT u opsegu između 15 i 40.
-Raspodela ima izražen rep ka višim vrednostima, što ukazuje prisustvo značajnih odstupajućih vrednosti u podacima.
-
-Primenjena je provera prisustva odstupajućih vrednosti
-
+Detekcija odstupajućih vrednosti (ALT)
 ```{r}
-
-#Izračunavanje kvartila
-
 Q1 <- quantile(dataset$ALT, 0.25, na.rm = TRUE)
 Q3 <- quantile(dataset$ALT, 0.75, na.rm = TRUE)
 IQR_val <- Q3 - Q1
 
-#Određivanje granica za outlajere
-
 donja_granica <- Q1 - 1.5 * IQR_val
 gornja_granica <- Q3 + 1.5 * IQR_val
 
-#Prikaz donje i gornje granice
-
 donja_granica
 gornja_granica
-
-#Pronalaženje outlajera
-
-outliers <- dataset$ALT[dataset$ALT < donja_granica | dataset$ALT > gornja_granica]
-
-#Broj outlajera
-
-length(outliers)
-outliers
-
 ```
-
-Rezultati dobijeni za kolonu ALT pokazuju da donja granica za detekciju odstupajućih vrednosti iznosi −8.575, dok je gornja granica 58.025.
-Primenom IQR metode identifikovano je ukupno 36 gornjih odstupajućih vrednosti, dok donjih nema.
-
-Boxplot za vizuelnu detekciju odstupajućih vrednosti
+Donja granica za detekciju odstupajućih vrednosti iznosi −8.575 U/L, dok je gornja granica 58.025 U/L.
 
 ```{r}
-
-boxplot(dataset$ALT, main = "Boxplot za ALT", horizontal = TRUE)
+outliers <- dataset$ALT[dataset$ALT < donja_granica | dataset$ALT > gornja_granica]
+length(outliers)
+outliers
 ```
+Primenom IQR metode identifikovano je ukupno 36 gornjih odstupajućih vrednosti, dok donjih odstupanja nema.
 
-Boxplot za kolonu ALT vizuelno potvrđuje prisustvo velikog broja gornjih odstupajućih vredsnoti, koji ukazuju na izraženu desnu asimetriju.
-S obzirom da se radi o ključnom markeru oštećenja jetre, ove vrednosti najverovatnije predstavljaju realna patološka stanja kod pacijenata sa oštećenjem jetre i zbog toga odstupajuće vrednosti neće biti uklonjene iz dalje analize.
+Boxplot analiza (ALT)
+```{r}
+boxplot(dataset$ALT,
+        main = "Boxplot vrednosti alanin-aminotransferaze (ALT)",
+        horizontal = TRUE)
+```
+Boxplot vizuelno potvrđuje prisustvo velikog broja gornjih odstupajućih vrednosti, što dodatno ukazuje na izraženu desnu asimetriju raspodele. S obzirom na to da je ALT ključni marker oštećenja jetre, ove vrednosti najverovatnije predstavljaju realna patološka stanja kod pacijenata sa oboljenjima jetre i zbog toga nisu uklonjene iz dalje analize.
 
 **Kolona AST**
 
+Promenljiva AST predstavlja nivo aspartat-aminotransferaze, enzima koji se nalazi u ćelijama jetre, ali i u srčanom i mišićnom tkivu. Iako je manje specifičan za jetru u poređenju sa ALT, AST ima značajnu ulogu u proceni stepena oštećenja jetre, naročito kod uznapredovalih stadijuma oboljenja kao što su fibroza i ciroza.
+
+Referentne vrednosti
+Referentne vrednosti AST kod zdravih odraslih osoba obično se kreću do 40 U/L
+
+Povišene vrednosti AST mogu ukazivati na:
+1.akutna i hronična oboljenja jetre,
+2.fibrozu i cirozu,
+3.opsežnije oštećenje jetrenog tkiva.
+
+Zbog toga je AST značajan parametar u analizi pacijenata sa hepatitisom C.
+
+Deskriptivna statistika promenljive AST
 ```{r}
 summary(dataset$AST)
 ```
 
-Vrednosti parametra AST su u rasponu od 10.60 do 324.00.
-Srednja vrednost iznosi 34.79, dok je medijana 25.90.
-Znatna razlika između srednje vrednosti i medijane ukazuje na to da je raspodela izrazito asimetrična udesno.
+Vrednosti parametra AST u posmatranom skupu podataka kreću se u rasponu od 10.60 do 324.00 U/L. Srednja vrednost iznosi 34.79 U/L, dok je medijana 25.90 U/L. Znatna razlika između srednje vrednosti i medijane ukazuje na izraženu desnu asimetriju raspodele.
 
-Grafički prikaz raspodele pacijenata u odnosu na AST
-
+Grafički prikaz raspodele vrednosti AST
 ```{r}
 ggplot(dataset, aes(x = AST)) +
   geom_histogram(bins = 30) +
-  labs(title = "Histogram raspodele AST")
+  labs(title = "Histogram raspodele vrednosti AST",
+       x = "AST (U/L)",
+       y = "Broj pacijenata")
 ```
+Histogram pokazuje da najveći broj pacijenata ima vrednosti AST u opsegu od 20 do 40 U/L, dok se kod znatnog broja pacijenata javljaju visoke vrednosti koje prelaze 100 U/L, a u ekstremnim slučajevima dostižu i preko 300 U/L. Ovakav obrazac ukazuje na prisustvo izraženih patoloških stanja jetre kod dela ispitanika.
 
-Na grafiku se može uočiti da najveći broj pacijenata ima vrednost AST u opsegu između 20 i 40.
-Raspodela ima izražen rep ka višim vrednostima, što ukazuje prisustvo brojnih odstupajućih vrednosti koji prelaze vrednost od 100, dok ekstremni slučajevi dostižu i preko 300.
-
-Primenjena je provera prisustva odstupajućih vrednosti
-
+Detekcija odstupajućih vrednosti (AST)
 ```{r}
-
-#Izračunavanje kvartila
-
 Q1 <- quantile(dataset$AST, 0.25, na.rm = TRUE)
 Q3 <- quantile(dataset$AST, 0.75, na.rm = TRUE)
 IQR_val <- Q3 - Q1
 
-#Određivanje granica za outlajere
-
 donja_granica <- Q1 - 1.5 * IQR_val
 gornja_granica <- Q3 + 1.5 * IQR_val
 
-#Prikaz donje i gornje granice
-
 donja_granica
 gornja_granica
-
-#Pronalaženje outlajera
-
-outliers <- dataset$AST[dataset$AST < donja_granica | dataset$AST > gornja_granica]
-
-#Broj outlajera
-
-length(outliers)
-outliers
-
 ```
-
-Rezultati dobijeni za kolonu AST pokazuju da donji kvartil iznosi 4.65, a gornji kvartil 49.85.
-Primenom IQR metode identifikovano je ukupno 64 odstupajućih vrednosti, što ukazuje na postojanje vrednosti koje odstupaju od većine podataka.
-
-Boxplot za vizuelnu detekciju odstupajućih vrednosti
+Donji kvartil iznosi 4.65 U/L, dok je gornji kvartil 49.85 U/L. 
 
 ```{r}
+outliers <- dataset$AST[dataset$AST < donja_granica | dataset$AST > gornja_granica]
+length(outliers)
+outliers
+```
+Primenom IQR metode identifikovano je ukupno 64 odstupajuće vrednosti, što ukazuje na veliku varijabilnost ovog parametra među pacijentima.
 
-boxplot(dataset$AST, main = "Boxplot za AST", horizontal = TRUE)
+Boxplot analiza (AST)
+```{r}
+boxplot(dataset$AST,
+        main = "Boxplot vrednosti aspartat-aminotransferaze (AST)",
+        horizontal = TRUE)
 ```
 
-Boxplot za kolonu AST vizuelno potvrđuje prisustvo velikog broja gornjih odstupajućih vrednosti, koji ukazuju na izraženu desnu asimetriju.
-S obzirom da je AST važan biohemijski marker oštećenja jetre, ove povišene vrednosti predstavljaju realna patološka stanja kod pacijenata sa oštećenjem jetre.
-Zbog toga odstupajućih vrednosti neće biti uklonjeni iz dalje analize, kako bi se zadržala potpuna informacija o varijabilnosti podataka.
+Boxplot vizuelno potvrđuje prisustvo velikog broja gornjih odstupajućih vrednosti i izraženu desnu asimetriju raspodele. S obzirom na klinički značaj AST kao pokazatelja oštećenja jetre, ove povišene vrednosti predstavljaju realna patološka stanja, te zbog toga nisu uklonjene iz dalje analize.
 
 **Kolona BIL**
 
+Promenljiva BIL predstavlja koncentraciju bilirubina u krvi, izraženu u mikromolima po litru (µmol/L). Bilirubin je produkt razgradnje hemoglobina i predstavlja jedan od ključnih pokazatelja funkcionalnog stanja jetre i žučnih puteva. Povišene vrednosti bilirubina često su povezane sa smanjenom sposobnošću jetre da obradi i eliminiše bilirubin iz organizma.
+
+Referentne vrednosti
+Kod zdravih odraslih osoba, ukupni bilirubin se obično kreće u opsegu od 5 do 21 µmol/L.
+
+Povišene vrednosti bilirubina mogu ukazivati na:
+1.hepatitis,
+2.opstrukciju žučnih puteva,
+3.cirozu jetre i druga teška oštećenja jetrene funkcije.
+
+Deskriptivna statistika promenljive BIL
 ```{r}
 summary(dataset$BIL)
 ```
 
-Vrednosti parametra BIL su u rasponu od 0.8 do 254.00.
-Srednja vrednost iznosi 11.4, dok je medijana 7.3, što ukazuje na to da je raspodela asimetrična udesno, jer je srednja vrednost veća od medijane.
+Vrednosti parametra BIL u skupu podataka kreću se u rasponu od 0.8 do 254.00 µmol/L. Srednja vrednost iznosi 11.4 µmol/L, dok je medijana 7.3 µmol/L, što ukazuje na izraženu desnu asimetriju raspodele.
 
-Grafički prikaz raspodele pacijenata u odnosu na BIL
-
+Grafički prikaz raspodele vrednosti BIL
 ```{r}
 ggplot(dataset, aes(x = BIL)) +
   geom_histogram(bins = 30) +
-  labs(title = "Histogram raspodele BIL")
+  labs(title = "Histogram raspodele vrednosti bilirubina (BIL)",
+       x = "Bilirubin (µmol/L)",
+       y = "Broj pacijenata")
 ```
+Histogram pokazuje da najveći broj pacijenata ima niske vrednosti bilirubina, najčešće u opsegu od 5 do 15 µmol/L, dok manji broj pacijenata ima izrazito povišene vrednosti koje prelaze 100 µmol/L, a u ekstremnim slučajevima dostižu i preko 200 µmol/L, što je karakteristično za teška oštećenja jetrene funkcije.
 
-Na grafiku se može uočiti da najveći broj pacijenata ima niske vrednosti BIL, u opsegu između 5 i 15.
-Raspodela ima izražen rep ka višim vrednostima, što ukazuje na prisustvo odstupajućih vrednosti.
-Manji broj pacijenata ima veoma povišene vrednosti bilirubina koje prelaze 100, dok ekstremni slučajevi dostižu i preko 200, što je tipično za teška oštećenja funkcije jetre.
-
-Primenjena je provera prisustva odstupajućih vrednosti
-
+Detekcija odstupajućih vrednosti (BIL)
 ```{r}
-
-#Izračunavanje kvartila
-
 Q1 <- quantile(dataset$BIL, 0.25, na.rm = TRUE)
 Q3 <- quantile(dataset$BIL, 0.75, na.rm = TRUE)
 IQR_val <- Q3 - Q1
 
-#Određivanje granica za outlajere
-
 donja_granica <- Q1 - 1.5 * IQR_val
 gornja_granica <- Q3 + 1.5 * IQR_val
 
-#Prikaz donje i gornje granice
-
 donja_granica
 gornja_granica
-
-#Pronalaženje outlajera
-
-outliers <- dataset$BIL[dataset$BIL < donja_granica | dataset$BIL > gornja_granica]
-
-#Broj outlajera
-
-length(outliers)
-outliers
-
 ```
+Donji kvartil iznosi −3.55 µmol/L, dok gornji kvartil iznosi 20.05 µmol/L.
 
-Rezultati dobijeni za kolonu BIL pokazuju da donji kvartil iznosi -3.55, a gornji 20.05.
-Primenom IQR metode identifikovano je ukupno 47 odstupajućih vrednosti.
-Ova visoka broj odstupajućih vrednosti ukazuje na značajne varijacije u nivoima bilirubina kod pacijenata.
-
-Boxplot za vizuelnu detekciju odstupajućih vrednosti
 
 ```{r}
-
-boxplot(dataset$BIL, main = "Boxplot za BIL", horizontal = TRUE)
+outliers <- dataset$BIL[dataset$BIL < donja_granica | dataset$BIL > gornja_granica]
+length(outliers)
+outliers
 ```
+Primenom IQR metode identifikovano je ukupno 47 odstupajućih vrednosti, što ukazuje na značajne varijacije u koncentraciji bilirubina među pacijentima.
 
-Boxplot za kolonu BIL ukazuje na desno asimetričnu raspodelu sa značajnim brojem gornjih odstupajućih vrednsoti.
-Ovo potvrđuje prisustvo pacijenata sa značajno povišenim nivoima bilirubina.
-S obzirom da je bilirubin ključni indikator jetrenih funkcija, ova odstupanja od normalnih vrednosti mogu biti posledica različitih oboljenja jetre i zbog toga odstupajuće vrednosti neće biti uklonjene iz dalje analize.
+Boxplot analiza (BIL)
+```{r}
+boxplot(dataset$BIL,
+        main = "Boxplot vrednosti bilirubina (BIL)",
+        horizontal = TRUE)
+```
+Boxplot ukazuje na desno asimetričnu raspodelu sa značajnim brojem gornjih odstupajućih vrednosti, što potvrđuje prisustvo pacijenata sa ozbiljno povišenim nivoima bilirubina. S obzirom na klinički značaj bilirubina kao ključnog indikatora funkcije jetre, ove vrednosti predstavljaju realna patološka stanja i zbog toga nisu uklonjene iz dalje analize.
 
 **Kolona CHE**
 
+Promenljiva CHE predstavlja nivo holinesteraze u krvi, enzima koji se dominantno sintetiše u jetri i predstavlja značajan pokazatelj sintetske funkcije jetre. Za razliku od transaminaza (ALT i AST), koje rastu kod akutnog oštećenja jetre, snižene vrednosti holinesteraze često ukazuju na hronična oboljenja jetre, kao što su fibroza i ciroza.
+
+Referentne vrednosti
+Referentne vrednosti holinesteraze kod zdravih odraslih osoba najčešće se kreću u opsegu od -5 do 12 kU/L (opseg može varirati u zavisnosti od laboratorije).
+
+Snižene vrednosti CHE mogu ukazivati na:
+1.smanjenu sintetsku sposobnost jetre,
+2.hronična oboljenja jetre,
+3.cirozu.
+
+Povišene vrednosti su ređe i mogu biti povezane sa:
+1.metaboličkim poremećajima,
+2.gojaznošću ili određenim genetskim faktorima.
+
+Deskriptivna statistika promenljive CHE
 ```{r}
 summary(dataset$CHE)
 ```
 
-Vrednosti parametra CHE su u rasponu od 1.420 do 16.410.
-Srednja vrednost iznosi 8.197, dok je medijana 8.260, što ukazuje da je raspodela približno simetrična, bez izražene asimetrije.
+Vrednosti parametra CHE u posmatranom skupu podataka kreću se u rasponu od 1.420 do 16.410 kU/L. Srednja vrednost iznosi 8.197 kU/L, dok je medijana 8.260 kU/L, što ukazuje na približno simetričnu raspodelu bez izražene asimetrije.
 
-Grafički prikaz raspodele pacijenata u odnosu na CHE
-
+Grafički prikaz raspodele vrednosti CHE
 ```{r}
 ggplot(dataset, aes(x = CHE)) +
   geom_histogram(bins = 30) +
-  labs(title = "Histogram raspodele CHE")
+  labs(title = "Histogram raspodele vrednosti holinesteraze (CHE)",
+       x = "CHE (kU/L)",
+       y = "Broj pacijenata")
 ```
+Histogram pokazuje da najveći broj pacijenata ima vrednosti holinesteraze u opsegu od 6 do 10 kU/L, što u velikoj meri odgovara referentnim vrednostima za zdravu populaciju. Uočavaju se i potencijalne odstupajuće vrednosti kako na donjem, tako i na gornjem delu raspodele.
 
-Na grafiku se može uočiti da najveći broj pacijenata ima vrednosti CHE u opsegu između 6 i 10.
-Možemo uočiti i potencijalne odstupajuće vrednosti na nižim i višim vrednostima.
-
-Primenjena je provera prisustva odstupajućih vrednosti
-
+Detekcija odstupajućih vrednosti (CHE)
 ```{r}
-
-#Izračunavanje kvartila
-
 Q1 <- quantile(dataset$CHE, 0.25, na.rm = TRUE)
 Q3 <- quantile(dataset$CHE, 0.75, na.rm = TRUE)
 IQR_val <- Q3 - Q1
 
-#Određivanje granica za outlajere
+donja_granica <- Q1 - 1.5 * IQR_val
+gornja_granica <- Q3 + 1.5 * IQR_val
+
+donja_granica
+gornja_granica
+```
+Donji kvartil iznosi 2.95 kU/L, dok gornji kvartil iznosi 13.57 kU/L. 
+
+```{r}
+Q1 <- quantile(dataset$CHE, 0.25, na.rm = TRUE)
+Q3 <- quantile(dataset$CHE, 0.75, na.rm = TRUE)
+IQR_val <- Q3 - Q1
 
 donja_granica <- Q1 - 1.5 * IQR_val
 gornja_granica <- Q3 + 1.5 * IQR_val
 
-#Prikaz donje i gornje granice
-
 donja_granica
 gornja_granica
-
-#Pronalaženje outlajera
-
-outliers <- dataset$CHE[dataset$CHE < donja_granica | dataset$CHE > gornja_granica]
-
-#Broj outlajera
-
-length(outliers)
-outliers
-
 ```
+Primenom IQR metode identifikovane su ukupno 24 odstupajuće vrednosti, što ukazuje na značajnu varijabilnost u nivou holinesteraze među pacijentima.
 
-Rezultati dobijeni za kolonu CHE pokazuju da donji kvartil iznosi 2.95, dok gornji kvartil iznosi 13.57.
-Primenom IQR metode identifikovane su ukupno 24 odstupajuće vrednosti, što ukazuje na prisustvo značajne varijabilnosti u nivoima holinesteraze među pacijentima.
-S obzirom na to da je holinesteraza važan biohemijski marker funkcije jetre, odstupanja od normalnih vrednosti mogu biti posledica različitih oboljenja jetre.
-
-Boxplot za vizuelnu detekciju outlajera
-
+Boxplot analiza (CHE)
 ```{r}
-
-boxplot(dataset$CHE, main = "Boxplot za CHE", horizontal = TRUE)
+boxplot(dataset$CHE,
+        main = "Boxplot vrednosti holinesteraze (CHE)",
+        horizontal = TRUE)
 ```
 
-Boxplot za kolonu CHE ukazuje na raspodelu sa izraženim odstupajućim vrednostima na obe strane, što potvrđuje prisustvo pacijenata sa ekstremno sniženim i ekstremno povišenim vrednostima ovog enzima, što može biti posledica različitih oboljenja jetre i zbog toga odstupajuće vrednosti neće biti uklonjene iz dalje analize.
+Boxplot pokazuje prisustvo odstupajućih vrednosti na obe strane raspodele, što potvrđuje postojanje pacijenata sa izrazito sniženim i izrazito povišenim vrednostima holinesteraze. S obzirom na to da je CHE važan marker funkcionalnog stanja jetre, ove vrednosti verovatno predstavljaju realna klinička stanja, zbog čega nisu uklonjene iz dalje analize.
 
 **Kolona CHOL**
 
+Promenljiva CHOL predstavlja koncentraciju ukupnog holesterola u krvi, izraženu u mmol/L. Holesterol je esencijalna lipidna komponenta ćelijskih membrana i učestvuje u sintezi hormona i žučnih kiselina. Jetra ima ključnu ulogu u metabolizmu holesterola, zbog čega poremećaji njene funkcije mogu dovesti do promena u njegovim vrednostima.
+
+Referentne vrednosti
+Referentne vrednosti ukupnog holesterola kod odraslih osoba najčešće se definišu kao:
+- < 5.2 mmol/L – poželjne vrednosti
+- 5.2 – 6.2 mmol/L – granične vrednosti
+- > 6.2 mmol/L – povišene vrednosti
+
+Vrednosti holesterola zavise od:
+
+1.ishrane,
+2.genetike,
+3.metaboličkog statusa,
+4.opšteg zdravstvenog stanja.
+
+Deskriptivna statistika promenljive CHOL
 ```{r}
 summary(dataset$CHOL)
 ```
+Vrednosti parametra CHOL u skupu podataka kreću se u rasponu od 1.430 do 9.670 mmol/L. Srednja vrednost iznosi 5.367 mmol/L, dok je medijana 5.300 mmol/L, što ukazuje na približno simetričnu raspodelu bez izražene asimetrije.
 
-Vrednosti parametra CHOL su u rasponu od 1.430 do 9.670.
-Srednja vrednost iznosi 5.367, dok je medijana 5.300, što ukazuje da je raspodela približno simetrična, bez izražene asimetrije.
-
-Grafički prikaz raspodele pacijenata u odnosu na CHOL
-
+Grafički prikaz raspodele vrednosti CHOL
 ```{r}
 ggplot(dataset, aes(x = CHOL)) +
   geom_histogram(bins = 30) +
-  labs(title = "Histogram raspodele CHOL")
+  labs(title = "Histogram raspodele vrednosti holesterola (CHOL)",
+       x = "Holesterol (mmol/L)",
+       y = "Broj pacijenata")
 ```
+Histogram pokazuje da najveći broj pacijenata ima vrednosti holesterola u opsegu od približno 4.5 do 6.0 mmol/L, dok se kod manjeg broja ispitanika javljaju i niže i više vrednosti, koje odstupaju od centralnog dela raspodele.
 
-Na grafiku se može uočiti da najveći broj pacijenata ima vrednosti CHE u opsegu otprilike između 4,5 i 6.
-Možemo uočiti i potencijalne odstupajuće vrednosti na nižim i višim vrednostima.
-
-Primenjena je provera prisustva odstupajućih vrednosti
-
+Detekcija odstupajućih vrednosti (CHOL)
 ```{r}
-
-#Izračunavanje kvartila
-
 Q1 <- quantile(dataset$CHOL, 0.25, na.rm = TRUE)
 Q3 <- quantile(dataset$CHOL, 0.75, na.rm = TRUE)
 IQR_val <- Q3 - Q1
 
-#Određivanje granica za outlajere
+donja_granica <- Q1 - 1.5 * IQR_val
+gornja_granica <- Q3 + 1.5 * IQR_val
+
+donja_granica
+gornja_granica
+```
+Donji kvartil iznosi 2.46 mmol/L, dok gornji kvartil iznosi 8.21 mmol/L. 
+
+```{r}
+Q1 <- quantile(dataset$CHOL, 0.25, na.rm = TRUE)
+Q3 <- quantile(dataset$CHOL, 0.75, na.rm = TRUE)
+IQR_val <- Q3 - Q1
 
 donja_granica <- Q1 - 1.5 * IQR_val
 gornja_granica <- Q3 + 1.5 * IQR_val
 
-#Prikaz donje i gornje granice
-
 donja_granica
 gornja_granica
-
-#Pronalaženje outlajera
-
-outliers <- dataset$CHOL[dataset$CHOL < donja_granica | dataset$CHOL > gornja_granica]
-
-#Broj outlajera
-
-length(outliers)
-outliers
-
 ```
 
-Rezultati dobijeni za kolonu CHOL pokazuju da donji kvartil iznosi 2.46, dok gornji kvartil iznosi 8.21.
-Primenom IQR metode identifikovano su ukupno 12 odstupajućih vrednosti, što ukazuje na prisustvo varijabilnosti u nivoima holesterola među pacijentima.
+Primenom IQR metode identifikovano je ukupno 12 odstupajućih vrednosti, što ukazuje na umerenu varijabilnost u nivou holesterola među pacijentima.
 
-Boxplot za vizuelnu detekciju odstupajućih vrednosti
-
+Boxplot analiza (CHOL)
 ```{r}
-
-boxplot(dataset$CHOL, main = "Boxplot za CHOL", horizontal = TRUE)
+boxplot(dataset$CHOL,
+        main = "Boxplot vrednosti holesterola (CHOL)",
+        horizontal = TRUE)
 ```
 
-Boxplot za kolonu CHOL ukazuje na raspodelu sa izraženim odstupajućim vrednostima na obe strane, što potvrđuje prisustvo pacijenata sa ekstremno sniženim i ekstremno povišenim vrednostima holesterola.
-S obzirom na to da je holesterol bitan medicinski podatak koji zavisi od ishrane, genetike i opšteg zdravlja, ovakva odstupanja su sasvim normalna, i zbog toga odstupajuće vrednosti neće biti uklonjene iz dalje analize.
+Boxplot ukazuje na prisustvo odstupajućih vrednosti na oba kraja raspodele, što potvrđuje postojanje pacijenata sa ekstremno sniženim i povišenim nivoima holesterola. S obzirom na to da je holesterol parametar koji značajno zavisi od ishrane, genetike i opšteg zdravstvenog stanja, ovakva odstupanja se smatraju realnim i zbog toga nisu uklonjena iz dalje analize.
 
 **Kolona CREA**
 
+Promenljiva CREA predstavlja koncentraciju kreatinina u krvi, koji je krajnji produkt metabolizma mišića i jedan od najvažnijih pokazatelja funkcije bubrega. Kreatinin se iz organizma izlučuje gotovo isključivo putem bubrega, pa povišene vrednosti ukazuju na smanjenu glomerularnu filtraciju.
+Kod pacijenata sa teškim oboljenjima jetre često dolazi do sekundarnog oštećenja bubrega (hepatorenalni sindrom), zbog čega je analiza kreatinina posebno značajna u ovom kontekstu.
+
+Referentne vrednosti (domensko objašnjenje)
+Uobičajene referentne vrednosti kreatinina kod odraslih osoba su približno 60–110 µmol/L (uz zavisnost od pola, starosti i mišićne mase)
+
+Deskriptivna statistika promenljive CREA
 ```{r}
 summary(dataset$CREA)
 ```
 
-Vrednosti parametra CREA su u rasponu od 8.00 do 1079.10.
-Srednja vrednost iznosi 81.29, dok je medijana 77.00, što ukazuje na asimetričnu raspodelu udesno, jer je srednja vrednost veća od medijane.
+Vrednosti parametra CREA u posmatranom skupu podataka kreću se u rasponu od 8.00 do 1079.10 µmol/L. Srednja vrednost iznosi 81.29 µmol/L, dok je medijana 77.00 µmol/L, što ukazuje na desno asimetričnu raspodelu, jer mali broj ekstremno visokih vrednosti značajno utiče na povećanje srednje vrednosti.
 
-Grafički prikaz raspodele pacijenata u odnosu na CREA
-
+Grafički prikaz raspodele vrednosti CREA
 ```{r}
 ggplot(dataset, aes(x = CREA)) +
   geom_histogram(bins = 30) +
-  labs(title = "Histogram raspodele CREA")
+  labs(title = "Histogram raspodele vrednosti kreatinina (CREA)",
+       x = "Kreatinin (µmol/L)",
+       y = "Broj pacijenata")
 ```
+Histogram pokazuje da se najveći broj pacijenata nalazi u opsegu vrednosti između 60 i 100 µmol/L, što odgovara normalnoj ili blago povišenoj funkciji bubrega. Međutim, uočava se izražen rep ka višim vrednostima, koji ukazuje na prisustvo pacijenata sa ozbiljno narušenom bubrežnom funkcijom.
 
-Na grafiku se može uočiti da najveći broj pacijenata ima vrednosti kreatinina u opsegu otprilike između 60 i 100.
-Raspodela ima izražen rep ka višim vrednostima, što ukazuje na prisustvo izraženih odstupajućih vrednosti.
-
-Primenjena je provera prisustva odstupajućih vrednosti
-
+Detekcija odstupajućih vrednosti (CREA)
 ```{r}
-
-#Izračunavanje kvartila
-
 Q1 <- quantile(dataset$CREA, 0.25, na.rm = TRUE)
 Q3 <- quantile(dataset$CREA, 0.75, na.rm = TRUE)
 IQR_val <- Q3 - Q1
 
-#Određivanje granica za outlajere
-
 donja_granica <- Q1 - 1.5 * IQR_val
 gornja_granica <- Q3 + 1.5 * IQR_val
 
-#Prikaz donje i gornje granice
-
 donja_granica
 gornja_granica
+```
 
-#Pronalaženje outlajera
+Donji kvartil iznosi 35.5 µmol/L, dok gornji kvartil iznosi 119.5 µmol/L. 
 
+```{r}
 outliers <- dataset$CREA[dataset$CREA < donja_granica | dataset$CREA > gornja_granica]
-
-#Broj outlajera
-
 length(outliers)
 outliers
 
 ```
 
-Rezultati dobijeni za kolonu CREA pokazuju da donji kvartil (Q1) iznosi 35.5, a gornji (Q3) 119.5.
-Primenom IQR metode identifikovano je ukupno 12 odstupajućih vrednosti.
-Prisutne su vrednosti koje drastično odskaču od proseka (poput 519.0 i 1079.1), što ukazuje na pacijente sa ozbiljno narušenom funkcijom bubreg.
-Ovo je važno jer ozbiljna oboljenja jetre često dovode i do prestanka rada bubrega.
+Primenom IQR metode identifikovano je ukupno 12 odstupajućih vrednosti, uključujući ekstremno visoke vrednosti (npr. 519.0 i 1079.1 µmol/L).
 
-Boxplot za vizuelnu detekciju odstupajućih vrednosti
-
+Boxplot analiza (CREA)
 ```{r}
-
-boxplot(dataset$CREA, main = "Boxplot za CREA", horizontal = TRUE)
+boxplot(dataset$CREA,
+        main = "Boxplot vrednosti kreatinina (CREA)",
+        horizontal = TRUE)
 ```
-
-Boxplot za kolonu CREA ukazuje na desno asimetričnu raspodelu sa izraženim gornjim odstupajućim vrednostima.
-Vizuelni prikaz potvrđuje da se većina vrednosti nalazi u nižem opsegu, dok mali broj ekstremno visokih vrednosti značajno odstupa.
-Zbog prethodno navedenih razloga odstupajuće vrednosti neće biti uklonjene iz dalje analize, kako bi se zadržala potpuna informacija o varijabilnosti podataka.
+Boxplot potvrđuje izraženu desnu asimetriju raspodele sa malim brojem ekstremno visokih vrednosti. S obzirom na klinički značaj ovih vrednosti i njihovu povezanost sa ozbiljnim zdravstvenim stanjima, odstupajuće vrednosti nisu uklonjene iz dalje analize.
 
 **Kolona GGT**
 
+Promenljiva GGT predstavlja koncentraciju enzima gama-glutamil transferaze, koji je izuzetno osetljiv marker oštećenja jetre i žučnih puteva. GGT je naročito povišen kod holestaze, alkoholne bolesti jetre i drugih hepatobilijarnih poremećaja.
+
+Referentne vrednosti (domensko objašnjenje)
+Tipične referentne vrednosti GGT su manje od 50 U/L (uz zavisnost od pola i laboratorije)
+
+Deskriptivna statistika promenljive GGT
 ```{r}
 summary(dataset$GGT)
 ```
 
-Vrednosti parametra GGT su u rasponu od 4.50 do 650.90.
-Srednja vrednost iznosi 39.53, dok je medijana 23.30, što ukazuje na izraženu desnu asimetriju raspodele.
-Većina pacijenata ima niske vrednosti GGT, koncentrisane u donjem delu raspodele, dok manji broj pacijenata ima veoma visoke vrednosti, koje značajno utiču na povećanje srednje vrednosti.
+Vrednosti parametra GGT kreću se u rasponu od 4.50 do 650.90 U/L. Srednja vrednost iznosi 39.53 U/L, dok je medijana 23.30 U/L, što jasno ukazuje na izraženu desnu asimetriju raspodele.
 
-Grafički prikaz raspodele pacijenata u odnosu na GGT
-
+Grafički prikaz raspodele vrednosti GGT
 ```{r}
 ggplot(dataset, aes(x = GGT)) +
   geom_histogram(bins = 30) +
-  labs(title = "Histogram raspodele GGT")
+  labs(title = "Histogram raspodele vrednosti GGT",
+       x = "GGT (U/L)",
+       y = "Broj pacijenata")
 ```
+Histogram pokazuje da većina pacijenata ima relativno niske vrednosti GGT, dok manji broj pacijenata ima izuzetno visoke vrednosti, koje formiraju izražen rep ka desnoj strani raspodele.
 
-Na grafiku se može videti da najveći broj pacijenata ima niže vrednosti GGT.
-Raspodela ima izražen rep ka višim vrednostima, što ukazuje na prisustvo izraženih odstupajućih vrednosti.
-
-Primenjena je provera prisustva odstupajućih vrednosti
-
+Detekcija odstupajućih vrednosti (GGT)
 ```{r}
-
-#Izračunavanje kvartila
-
 Q1 <- quantile(dataset$GGT, 0.25, na.rm = TRUE)
 Q3 <- quantile(dataset$GGT, 0.75, na.rm = TRUE)
 IQR_val <- Q3 - Q1
 
-#Određivanje granica za outlajere
-
 donja_granica <- Q1 - 1.5 * IQR_val
 gornja_granica <- Q3 + 1.5 * IQR_val
 
-#Prikaz donje i gornje granice
-
 donja_granica
 gornja_granica
-
-#Pronalaženje outlajera
-
-outliers <- dataset$GGT[dataset$GGT < donja_granica | dataset$GGT > gornja_granica]
-
-#Broj outlajera
-
-length(outliers)
-outliers
-
 ```
-
-Rezultati dobijeni za kolonu GGT pokazuju da donji kvartil iznosi -21.05, a gornji 76.95.
-Primenom IQR metode identifikovano je ukupno 65 odstupajućih vrednosti.
-Ovako veliki broj ekstremnih vrednosti ukazuje na značajne varijacije u nivoima ovog enzima među pacijentima.
-Budući da je GGT osetljiv pokazatelj oštećenja jetre i žučnih puteva, ove visoke vrednosti (koje dosežu i do 650.9) klinički su veoma značajne jer ukazuju na ozbiljne zdravstvene probleme.
-
-Boxplot za vizuelnu detekciju odstupajućih vrednosti
+Donji kvartil iznosi -21.05U/L, dok gornji kvartil iznosi 76.95U/L.
 
 ```{r}
+outliers <- dataset$GGT[dataset$GGT < donja_granica | dataset$GGT > gornja_granica]
+length(outliers)
+outliers
+```
+Primenom IQR metode identifikovano je 65 odstupajućih vrednosti, pri čemu gornje vrednosti dostižu i 650.9 U/L.Ovako veliki broj ekstremnih vrednosti ukazuje na izražene patološke promene jetre i žučnih puteva kod značajnog broja pacijenata.
 
-boxplot(dataset$GGT, main = "Boxplot za GGT", horizontal = TRUE)
+Boxplot analiza (GGT)
+```{r}
+boxplot(dataset$GGT,
+        main = "Boxplot vrednosti GGT",
+        horizontal = TRUE)
 ```
 
-Boxplot za kolonu GGT ukazuje na izrazito desno asimetričnu raspodelu sa velikim brojem gornjih odstupajućim vrednostima.
-Ovakav grafički prikaz potvrđuje prisustvo grupe pacijenata sa drastično povišenim nivoima enzima, što je od ključnog značaja za dijagnostiku oštećenja jetre i problema sa žučnim putevima, i zbog toga odstupajuće vrednosti neće biti uklonjene iz dalje analize.
+Boxplot jasno potvrđuje izraženu desnu asimetriju sa velikim brojem gornjih odstupajućih vrednosti. S obzirom na visoku dijagnostičku vrednost GGT enzima, ove ekstremne vrednosti predstavljaju realna klinička stanja i nisu uklonjene iz dalje analize.
 
 **Kolona PROT**
 
+Promenljiva PROT predstavlja koncentraciju ukupnih proteina u serumu, koji uključuju albumine i globuline. Jetra ima ključnu ulogu u sintezi većine serumskih proteina, pa snižene vrednosti PROT često ukazuju na smanjenu sintetsku funkciju jetre, ali i na poremećaje ishrane ili hronične bolesti.
+
+Referentne vrednosti (domensko objašnjenje)
+Referentne vrednosti ukupnih proteina u serumu najčešće se kreću u opsegu:
+- 64–83 g/L
+
+Deskriptivna statistika promenljive PROT
 ```{r}
 summary(dataset$PROT)
 ```
 
-Vrednosti parametra PROT su u rasponu od 44.80 do 90.00.
-Srednja vrednost iznosi 72.04, dok je medijana 72.20, što ukazuje na približno simetričnu raspodelu bez izražene asimetrije.
+Vrednosti parametra PROT kreću se u rasponu od 44.80 do 90.00 g/L. Srednja vrednost iznosi 72.04 g/L, dok je medijana 72.20 g/L, što ukazuje na približno simetričnu raspodelu bez izražene asimetrije.
 
-Grafički prikaz raspodele pacijenata u odnosu na PROT
-
+Grafički prikaz raspodele vrednosti PROT
 ```{r}
 ggplot(dataset, aes(x = PROT)) +
   geom_histogram(bins = 30) +
-  labs(title = "Histogram raspodele PROT")
+  labs(title = "Histogram raspodele ukupnih proteina (PROT)",
+       x = "Ukupni proteini (g/L)",
+       y = "Broj pacijenata")
 ```
+Histogram pokazuje da se najveći broj pacijenata nalazi u opsegu od 65 do 80 g/L, dok manji broj pacijenata ima znatno niže ili više vrednosti.
 
-Na grafiku se može videti da najveći broj pacijenata ima vrednosti PROT u opsegu između približno 65 i 80.
-Raspodela je relativno simetrična, uz prisustvo manjeg broja nižih i viših vrednosti.
-
-Primenjena je provera prisustva odstupajućih vrednosti
-
+Detekcija odstupajućih vrednosti (PROT)
 ```{r}
-
-#Izračunavanje kvartila
-
 Q1 <- quantile(dataset$PROT, 0.25, na.rm = TRUE)
 Q3 <- quantile(dataset$PROT, 0.75, na.rm = TRUE)
 IQR_val <- Q3 - Q1
 
-#Određivanje granica za outlajere
-
 donja_granica <- Q1 - 1.5 * IQR_val
 gornja_granica <- Q3 + 1.5 * IQR_val
 
-#Prikaz donje i gornje granice
-
 donja_granica
 gornja_granica
+```
+Donji kvartil iznosi 60.15 g/L, dok gornji iznosi 84.55 g/L. 
 
-#Pronalaženje outlajera
-
+```{r}
 outliers <- dataset$PROT[dataset$PROT < donja_granica | dataset$PROT > gornja_granica]
-
-#Broj outlajera
-
 length(outliers)
 outliers
 
 ```
 
-Rezultati dobijeni za kolonu PROT pokazuju da donji kvartil iznosi 60.15, dok je gornji 84.55.
-Primenom IQR metode, identifikovano je 20 odstupajućih vrednosti.
-Primećujemo značajan broj odstupajućih vrednosti koji su ispod proseka (npr. 44.8, 47.0).
-Kako je jetra odgovorna za stvaranje skoro svih proteina u krvi, ovi niski rezultati su direktan pokazatelj da jetra kod tih pacijenata verovatno ne funkcioniše kako treba i da ne može da proizvede dovoljno proteina.
+Primenom IQR metode identifikovano je ukupno 20 odstupajućih vrednosti, od kojih se značajan deo nalazi ispod donje granice. Snižene vrednosti ukupnih proteina (npr. 44.8 i 47.0 g/L) ukazuju na smanjenu sposobnost jetre da sintetiše proteine, što je karakteristično za uznaprdeovala oboljenja jetre.
 
-Boxplot za vizuelnu detekciju outlajera
-
+Boxplot analiza (PROT)
 ```{r}
-
-boxplot(dataset$PROT, main = "Boxplot za PROT", horizontal = TRUE)
+boxplot(dataset$PROT,
+        main = "Boxplot vrednosti ukupnih proteina (PROT)",
+        horizontal = TRUE)
 ```
 
-Boxplot za kolonu PROT ukazuje na prisustvo odstupajućih vrednosti na oba kraja distribucije, što ukazuje na pacijente sa vrednostima koje značajno odstupaju od proseka.
-Ovakav grafički prikaz potvrđuje postojanje grupe pacijenata sa smanjenom koncentracijom proteina, što je od ključnog značaja za dijagnostiku poremećaja u ishrani, kao i potencijalnih problema sa radom jetre, i zbog toga odstupajuće vrednosti neće biti uklonjene iz dalje analize.
+Boxplot ukazuje na prisustvo odstupajućih vrednosti na oba kraja raspodele, pri čemu su klinički posebno značajne niske vrednosti proteina, jer direktno ukazuju na poremećaj sintetske funkcije jetre. Zbog toga odstupajuće vrednosti nisu uklonjene iz dalje analize.
+
+##Zakljućak analize
+
+Eksplorativna analiza pokazala je da većina biohemijskih parametara ima izraženu desnu asimetriju i prisustvo odstupajućih vrednosti, naročito kod jetrenih enzima (ALT, AST, GGT), bilirubina i kreatinina. Ovakva raspodela je očekivana s obzirom na to da skup podataka obuhvata pacijente sa različitim stadijumima oboljenja jetre. Identifikovane odstupajuće vrednosti predstavljaju realna klinička stanja, a ne greške u merenju, zbog čega nisu uklonjene iz dalje analize. Dobijeni rezultati ukazuju na značajnu varijabilnost podataka i potvrđuju njihovu pogodnost za dalju statističku analizu i izgradnju klasifikacionih modela.
 
 ## Logička i bivarijantna analiza podataka
 
