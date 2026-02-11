@@ -71,7 +71,7 @@ U skupu podataka se nalazi 12 numeričkih promenljivih (int, num) i 2 kategorijs
 ```{r}
 str(dataset)
 ```
-##Opis skupa podataka
+## Opis skupa podataka
 
 Skup podataka sadrži ukupno 14 promenljivih koje obuhvataju demografske karakteristike pacijenata, kao i relevantne biohemijske parametre krvi povezane sa funkcijom jetre. Opis pojedinačnih promenljivih dato je u nastavku:
 
@@ -92,7 +92,7 @@ PROT – ukupna koncentracija proteina u krvi
 
 Većina navedenih biohemijskih parametara predstavlja značajne pokazatelje oštećenja i funkcije jetre, te su od ključnog značaja za analizu i predikciju oboljenja jetre.
 
-#Promenljiva Category
+## Promenljiva Category
 
 Promenljiva Category predstavlja ciljnu promenljivu u ovom skupu podataka i služi za kliničku klasifikaciju pacijenata prema stanju jetre. Klasifikacija je izvršena na osnovu laboratorijskih nalaza krvi i medicinske dijagnostike, sa posebnim fokusom na oboljenja jetre izazvana virusom hepatitisa C.
 
@@ -114,6 +114,8 @@ Fibroza predstavlja napredniji stadijum oboljenja jetre, u kojem dolazi do stvar
 Ciroza je najteži i hronični stadijum oboljenja jetre, karakterisan trajnim oštećenjem jetrenog tkiva i značajnim smanjenjem funkcije jetre. U ovom stadijumu laboratorijski parametri često pokazuju izrazita odstupanja, a stanje može biti životno ugrožavajuće.
 
 Na osnovu promenljive Category moguće je sprovesti statističke analize, kao i razvijati modele mašinskog učenja sa ciljem predikcije zdravstvenog statusa pacijenata i ranog otkrivanja oboljenja jetre.
+
+## Logička analiza podataka
 
 **Provera odnosa ALB i PROT**
 
@@ -945,11 +947,6 @@ Boxplot ukazuje na prisustvo odstupajućih vrednosti na oba kraja raspodele, pri
 ##Zakljućak analize
 
 Eksplorativna analiza pokazala je da većina biohemijskih parametara ima izraženu desnu asimetriju i prisustvo odstupajućih vrednosti, naročito kod jetrenih enzima (ALT, AST, GGT), bilirubina i kreatinina. Ovakva raspodela je očekivana s obzirom na to da skup podataka obuhvata pacijente sa različitim stadijumima oboljenja jetre. Identifikovane odstupajuće vrednosti predstavljaju realna klinička stanja, a ne greške u merenju, zbog čega nisu uklonjene iz dalje analize. Dobijeni rezultati ukazuju na značajnu varijabilnost podataka i potvrđuju njihovu pogodnost za dalju statističku analizu i izgradnju klasifikacionih modela.
-
-## Logička i bivarijantna analiza podataka
-
-Nakon uradjene univarijantne analize, kojom su identifikovane ekstremne vrednosti u okviru pojedinačnih laboratorijskih parametara, proces se nastavlja implementacijom logičke analize odnosa između različitih parametara.
-Dok univarijantni pristup detektuje vrednosti koje odstupaju od proseka, bivarijantna i multivarijantna analiza omogućavaju uočavanje onih podataka koji su unutar "normalnih" granica kada se posmatraju izolovano, ali formiraju medicinski nemoguće ili sumnjive kombinacije.
 
 
 **Kolona Category - izlazna kolona**
