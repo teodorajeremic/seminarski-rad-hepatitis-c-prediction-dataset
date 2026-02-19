@@ -1649,6 +1649,58 @@ confusionMatrix(predictions, test_bin$Target_binary, positive = "Class1")
 ```
 Kroz 5-fold kros-validaciju izračunat je prosek tačnosti i F1-score-a izmedju svakog folda. Dobijeni su identični rezultati kao pre. To potvrdjuje validnost našeg pristupa. 
 
+
+## MLflow 
+MLflow je open-source alat za praćenje eksperimenata i upravljanje životnim ciklusom modela. U odnosu na W&B, MLflow se često koristi lokalno (self-hosted) i ima odličnu podršku za R.
+
+```{r}
+
+library(mlflow)
+library(caret)
+
+# Konektuj se na MLflow
+mlflow_set_tracking_uri("http://127.0.0.1:5000")
+mlflow_set_experiment("hepatitisC_prediction")
+
+# Start run
+mlflow_start_run()
+
+mlflow_log_param("model", "RandomForest")
+mlflow_log_param("ntree", 50)
+mlflow_log_param("task", "binary classification")
+mlflow_set_tag("mlflow.runName", "RandomForest-baseline")
+mlflow_log_param(
+  "features",
+  "AST,ALT,GGT,BIL,ALP,ALB,CHOL,CHE,CREA,Age,Sex"
+)
+
+table(test_bin$Target_binary)
+
+cm <- confusionMatrix(predictions, test_bin$Target_binary, positive = "Class1")
+
+acc <- as.numeric(cm$overall["Accuracy"])
+rec <- as.numeric(cm$byClass["Sensitivity"])
+f1  <- as.numeric(cm$byClass["F1"])
+prec <- as.numeric(cm$byClass["Pos Pred Value"])
+
+if (is.na(prec)) prec <- 0
+
+mlflow_log_metric("accuracy", acc)
+mlflow_log_metric("precision", prec)
+mlflow_log_metric("recall", rec)
+mlflow_log_metric("f1_score", f1)
+
+mlflow_end_run()
+
+cm
+
+```
+
+![Slika 1: Lista eksperimenata u okviru MLFlow projekta hepatitisC_prediction](lista-runs.png)
+
+![Slika 2: Prikaz detalja parametara i metrike koji su korišćeni](params-metrike.png)
+
+
 ## SMOTE metoda u cross validaciji
 
 Primenjena je SMOTE (Synthetic Minority Over-sampling Technique) metoda jer klasični algoritmi, poput Random Forest-a, često postaju pristrasni prema većinskoj klasi.SMOTE kreira nove, sintetičke primere tako što pronalazi slične postojeće instance manjinske klase i „ispunjava“ prostor između njih novim tačkama podataka. SMOTE se primenjuje isključivo unutar kros-validacije, i to unutar svakog pojedinačnog folda trening skupa.
