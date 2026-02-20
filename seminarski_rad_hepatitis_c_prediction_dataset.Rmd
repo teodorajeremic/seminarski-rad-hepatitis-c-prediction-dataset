@@ -1658,41 +1658,115 @@ MLflow je open-source alat za praćenje eksperimenata i upravljanje životnim ci
 library(mlflow)
 library(caret)
 
-# Konektuj se na MLflow
 mlflow_set_tracking_uri("http://127.0.0.1:5000")
 mlflow_set_experiment("hepatitisC_prediction")
 
-# Start run
-mlflow_start_run()
+log_model_run <- function(method_name, run_name, extra_params = list()) {
 
-mlflow_log_param("model", "RandomForest")
-mlflow_log_param("ntree", 50)
-mlflow_log_param("task", "binary classification")
-mlflow_set_tag("mlflow.runName", "RandomForest-baseline")
-mlflow_log_param(
-  "features",
-  "AST,ALT,GGT,BIL,ALP,ALB,CHOL,CHE,CREA,Age,Sex"
-)
+  try(mlflow_end_run(), silent = TRUE)
+  mlflow_start_run()
+  mlflow_set_tag("mlflow.runName", run_name)
 
-table(test_bin$Target_binary)
+  # log parametri
+  mlflow_log_param("model", method_name)
+  mlflow_log_param("task", "binary classification")
+  mlflow_log_param("features", "AST,ALT,GGT,BIL,ALP,ALB,CHOL,CHE,CREA,Age,Sex")
 
-cm <- confusionMatrix(predictions, test_bin$Target_binary, positive = "Class1")
+  # extra parametri (npr. ntree, maxdepth)
+  for (nm in names(extra_params)) {
+    mlflow_log_param(nm, as.character(extra_params[[nm]]))
+  }
 
-acc <- as.numeric(cm$overall["Accuracy"])
-rec <- as.numeric(cm$byClass["Sensitivity"])
-f1  <- as.numeric(cm$byClass["F1"])
-prec <- as.numeric(cm$byClass["Pos Pred Value"])
+  ctrl <- trainControl(method="cv", number=5, classProbs=TRUE, savePredictions="final")
 
-if (is.na(prec)) prec <- 0
+  set.seed(123)
+  m <- train(
+    Target_binary ~ AST + ALT + GGT + BIL + ALP + ALB + CHOL + CHE + CREA + Age + Sex,
+    data = train_bin,
+    method = method_name,
+    trControl = ctrl
+  )
 
-mlflow_log_metric("accuracy", acc)
-mlflow_log_metric("precision", prec)
-mlflow_log_metric("recall", rec)
-mlflow_log_metric("f1_score", f1)
+  preds <- predict(m, newdata=test_bin)
+  preds <- factor(preds, levels = levels(test_bin$Target_binary))
 
-mlflow_end_run()
+  cm <- confusionMatrix(preds, test_bin$Target_binary, positive="Class1")
 
-cm
+  acc  <- as.numeric(cm$overall["Accuracy"])
+  prec <- as.numeric(cm$byClass["Pos Pred Value"])
+  rec  <- as.numeric(cm$byClass["Sensitivity"])
+  f1   <- as.numeric(cm$byClass["F1"])
+
+  # ako je prec NA (nema pozitivnih predikcija), stavi 0 da MLflow ne pukne
+  if (is.na(prec)) prec <- 0
+  if (is.na(f1)) f1 <- 0
+
+  mlflow_log_metric("accuracy", acc)
+  mlflow_log_metric("precision", prec)
+  mlflow_log_metric("recall", rec)
+  mlflow_log_metric("f1_score", f1)
+
+  mlflow_end_run()
+
+  return(cm)
+}
+
+#RandomForest
+cm_rf <- log_model_run("rf", "RandomForest-baseline", extra_params=list(ntree=50))
+
+#Logistic Regression
+# caret::train za glm: prosledi family kroz train() ... najsigurnije kroz train(..., family=binomial)
+log_model_run_glm <- function() {
+  try(mlflow_end_run(), silent = TRUE)
+  mlflow_start_run()
+  mlflow_set_tag("mlflow.runName", "LogisticRegression-baseline")
+
+  mlflow_log_param("model", "glm")
+  mlflow_log_param("task", "binary classification")
+  mlflow_log_param("family", "binomial")
+  mlflow_log_param("features", "AST,ALT,GGT,BIL,ALP,ALB,CHOL,CHE,CREA,Age,Sex")
+
+  ctrl <- trainControl(method="cv", number=5, classProbs=TRUE, savePredictions="final")
+
+  set.seed(123)
+  m <- train(
+    Target_binary ~ AST + ALT + GGT + BIL + ALP + ALB + CHOL + CHE + CREA + Age + Sex,
+    data = train_bin,
+    method = "glm",
+    family = binomial(),
+    trControl = ctrl
+  )
+
+  preds <- predict(m, newdata=test_bin)
+  preds <- factor(preds, levels = levels(test_bin$Target_binary))
+
+  cm <- confusionMatrix(preds, test_bin$Target_binary, positive="Class1")
+
+  acc  <- as.numeric(cm$overall["Accuracy"])
+  prec <- as.numeric(cm$byClass["Pos Pred Value"])
+  rec  <- as.numeric(cm$byClass["Sensitivity"])
+  f1   <- as.numeric(cm$byClass["F1"])
+
+  if (is.na(prec)) prec <- 0
+  if (is.na(f1)) f1 <- 0
+
+  mlflow_log_metric("accuracy", acc)
+  mlflow_log_metric("precision", prec)
+  mlflow_log_metric("recall", rec)
+  mlflow_log_metric("f1_score", f1)
+
+  mlflow_end_run()
+  cm
+}
+
+cm_lr <- log_model_run_glm()
+
+#Decision Tree
+cm_dt <- log_model_run("rpart", "DecisionTree-baseline", extra_params=list())
+
+cm_rf
+cm_lr
+cm_dt
 
 ```
 
