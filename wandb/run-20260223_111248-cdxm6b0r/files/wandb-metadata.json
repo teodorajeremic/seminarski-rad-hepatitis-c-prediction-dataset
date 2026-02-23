@@ -1,0 +1,40 @@
+{
+  "os": "Windows-10-10.0.19045-SP0",
+  "python": "CPython 3.8.20",
+  "startedAt": "2026-02-23T10:12:48.807278Z",
+  "program": "c:\\Users\\master4\\Desktop\\seminarski-rad-hepatitis-c-prediction-dataset\\hepatitis_wandb.ipynb",
+  "codePath": "c:\\Users\\master4\\Desktop\\seminarski-rad-hepatitis-c-prediction-dataset\\hepatitis_wandb.ipynb",
+  "codePathLocal": "hepatitis_wandb.ipynb",
+  "git": {
+    "remote": "https://github.com/teodorajeremic/seminarski-rad-hepatitis-c-prediction-dataset.git",
+    "commit": "1ca158c0f09417297666452e187ac46ac1fbe6e7"
+  },
+  "email": "tekiiicaaa99@gmail.com",
+  "root": "c:\\Users\\master4\\Desktop\\seminarski-rad-hepatitis-c-prediction-dataset",
+  "host": "PC-01",
+  "executable": "c:\\Users\\master4\\anaconda3\\envs\\tracking_env\\python.exe",
+  "cpu_count": 8,
+  "cpu_count_logical": 16,
+  "gpu": "NVIDIA GeForce GTX 1660",
+  "gpu_count": 1,
+  "disk": {
+    "/": {
+      "total": "475268489216",
+      "used": "426880155648"
+    }
+  },
+  "memory": {
+    "total": "17125666816"
+  },
+  "gpu_nvidia": [
+    {
+      "name": "NVIDIA GeForce GTX 1660",
+      "memoryTotal": "6442450944",
+      "cudaCores": 1408,
+      "architecture": "Turing",
+      "uuid": "GPU-051886c9-beef-b2fb-def0-12b7f032e0c1"
+    }
+  ],
+  "cudaVersion": "12.6",
+  "writerId": "v7nx54ivg5dx8vma48ijvtyrtj2kms6l"
+}

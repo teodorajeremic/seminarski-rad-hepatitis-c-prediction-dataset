@@ -1654,25 +1654,22 @@ Kroz 5-fold kros-validaciju izračunat je prosek tačnosti i F1-score-a izmedju 
 MLflow je open-source alat za praćenje eksperimenata i upravljanje životnim ciklusom modela. U odnosu na W&B, MLflow se često koristi lokalno (self-hosted) i ima odličnu podršku za R.
 
 ```{r}
-
 library(mlflow)
 library(caret)
 
 mlflow_set_tracking_uri("http://127.0.0.1:5000")
 mlflow_set_experiment("hepatitisC_prediction")
 
-log_model_run <- function(method_name, run_name, extra_params = list()) {
+log_model_run <- function(method_name, run_name, formula_obj, features_string, extra_params = list()) {
 
   try(mlflow_end_run(), silent = TRUE)
   mlflow_start_run()
   mlflow_set_tag("mlflow.runName", run_name)
 
-  # log parametri
+  # Logovanje parametara
   mlflow_log_param("model", method_name)
-  mlflow_log_param("task", "binary classification")
-  mlflow_log_param("features", "AST,ALT,GGT,BIL,ALP,ALB,CHOL,CHE,CREA,Age,Sex")
-
-  # extra parametri (npr. ntree, maxdepth)
+  mlflow_log_param("features", features_string)
+  
   for (nm in names(extra_params)) {
     mlflow_log_param(nm, as.character(extra_params[[nm]]))
   }
@@ -1680,24 +1677,21 @@ log_model_run <- function(method_name, run_name, extra_params = list()) {
   ctrl <- trainControl(method="cv", number=5, classProbs=TRUE, savePredictions="final")
 
   set.seed(123)
-  m <- train(
-    Target_binary ~ AST + ALT + GGT + BIL + ALP + ALB + CHOL + CHE + CREA + Age + Sex,
-    data = train_bin,
-    method = method_name,
-    trControl = ctrl
-  )
+  # Koristimo prosleđenu formulu i dodatne parametre direktno u train
+  args <- list(form = formula_obj, data = train_bin, method = method_name, trControl = ctrl)
+  m <- do.call(train, c(args, extra_params))
 
   preds <- predict(m, newdata=test_bin)
   preds <- factor(preds, levels = levels(test_bin$Target_binary))
 
   cm <- confusionMatrix(preds, test_bin$Target_binary, positive="Class1")
 
+  # Metrike
   acc  <- as.numeric(cm$overall["Accuracy"])
   prec <- as.numeric(cm$byClass["Pos Pred Value"])
   rec  <- as.numeric(cm$byClass["Sensitivity"])
   f1   <- as.numeric(cm$byClass["F1"])
 
-  # ako je prec NA (nema pozitivnih predikcija), stavi 0 da MLflow ne pukne
   if (is.na(prec)) prec <- 0
   if (is.na(f1)) f1 <- 0
 
@@ -1707,72 +1701,36 @@ log_model_run <- function(method_name, run_name, extra_params = list()) {
   mlflow_log_metric("f1_score", f1)
 
   mlflow_end_run()
-
   return(cm)
 }
 
-#RandomForest
-cm_rf <- log_model_run("rf", "RandomForest-baseline", extra_params=list(ntree=50))
+# --- DEFINISANJE FORMULA ---
+formula_1 <- Target_binary ~ AST + ALT + GGT + BIL + ALP + ALB + CHOL + CHE + CREA + Age + Sex
+string_1 <- "AST, ALT, GGT, BIL, ALP, ALB, CHOL, CHE, CREA, Age, Sex"
 
-#Logistic Regression
-# caret::train za glm: prosledi family kroz train() ... najsigurnije kroz train(..., family=binomial)
-log_model_run_glm <- function() {
-  try(mlflow_end_run(), silent = TRUE)
-  mlflow_start_run()
-  mlflow_set_tag("mlflow.runName", "LogisticRegression-baseline")
+formula_2 <- Target_binary ~ AST + ALT + GGT + BIL + ALP + CHE
+string_2 <- "AST, ALT, GGT, BIL, ALP, CHE"
 
-  mlflow_log_param("model", "glm")
-  mlflow_log_param("task", "binary classification")
-  mlflow_log_param("family", "binomial")
-  mlflow_log_param("features", "AST,ALT,GGT,BIL,ALP,ALB,CHOL,CHE,CREA,Age,Sex")
 
-  ctrl <- trainControl(method="cv", number=5, classProbs=TRUE, savePredictions="final")
+# RandomForest
+cm_rf   <- log_model_run("rf", "RandomForest-baseline", formula_1, string_1, list(ntree=50))
+cm_rf_2 <- log_model_run("rf", "RandomForest-reduced-features", formula_2, string_2, list(ntree=50))
 
-  set.seed(123)
-  m <- train(
-    Target_binary ~ AST + ALT + GGT + BIL + ALP + ALB + CHOL + CHE + CREA + Age + Sex,
-    data = train_bin,
-    method = "glm",
-    family = binomial(),
-    trControl = ctrl
-  )
+# Decision Tree
+cm_dt   <- log_model_run("rpart", "DecisionTree-baseline", formula_1, string_1)
+cm_dt_2 <- log_model_run("rpart", "DecisionTree-reduced-features", formula_2, string_2)
 
-  preds <- predict(m, newdata=test_bin)
-  preds <- factor(preds, levels = levels(test_bin$Target_binary))
-
-  cm <- confusionMatrix(preds, test_bin$Target_binary, positive="Class1")
-
-  acc  <- as.numeric(cm$overall["Accuracy"])
-  prec <- as.numeric(cm$byClass["Pos Pred Value"])
-  rec  <- as.numeric(cm$byClass["Sensitivity"])
-  f1   <- as.numeric(cm$byClass["F1"])
-
-  if (is.na(prec)) prec <- 0
-  if (is.na(f1)) f1 <- 0
-
-  mlflow_log_metric("accuracy", acc)
-  mlflow_log_metric("precision", prec)
-  mlflow_log_metric("recall", rec)
-  mlflow_log_metric("f1_score", f1)
-
-  mlflow_end_run()
-  cm
-}
-
-cm_lr <- log_model_run_glm()
-
-#Decision Tree
-cm_dt <- log_model_run("rpart", "DecisionTree-baseline", extra_params=list())
+# Logistic Regression (Baseline)
+cm_lr   <- log_model_run("glm", "LogisticRegression-baseline", formula_1, string_1, list(family="binomial"))
 
 cm_rf
-cm_lr
+cm_rf_2
 cm_dt
-
+cm_dt_2
+cm_lr
 ```
 
-![Slika 1: Lista eksperimenata u okviru MLFlow projekta hepatitisC_prediction](lista-runs.png)
-
-![Slika 2: Prikaz detalja parametara i metrike koji su korišćeni](params-metrike.png)
+Dobijeni rezultati su ostali identični kao do sada, ali je procesom integracije postignuto da se svi eksperimenti sada nalaze na jednom zajedničkom mestu, zajedno sa njihovim parametrima, metrikama, kao i verzijama podataka i konfiguracijama eksperimenta. MLflow omogućava interaktivno poređenje modela kroz grafički interfejs, što olakšava analizu i izbor najboljeg modela na osnovu objektivnih metrika.
 
 
 ## SMOTE metoda u cross validaciji
