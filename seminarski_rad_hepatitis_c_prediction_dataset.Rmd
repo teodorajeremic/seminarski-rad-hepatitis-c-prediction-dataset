@@ -1704,7 +1704,7 @@ log_model_run <- function(method_name, run_name, formula_obj, features_string, e
   return(cm)
 }
 
-# --- DEFINISANJE FORMULA ---
+#DEFINISANJE FORMULA
 formula_1 <- Target_binary ~ AST + ALT + GGT + BIL + ALP + ALB + CHOL + CHE + CREA + Age + Sex
 string_1 <- "AST, ALT, GGT, BIL, ALP, ALB, CHOL, CHE, CREA, Age, Sex"
 
@@ -1731,6 +1731,16 @@ cm_lr
 ```
 
 Dobijeni rezultati su ostali identični kao do sada, ali je procesom integracije postignuto da se svi eksperimenti sada nalaze na jednom zajedničkom mestu, zajedno sa njihovim parametrima, metrikama, kao i verzijama podataka i konfiguracijama eksperimenta. MLflow omogućava interaktivno poređenje modela kroz grafički interfejs, što olakšava analizu i izbor najboljeg modela na osnovu objektivnih metrika.
+
+## Prikaz modela na MLFlow platformi
+
+![MLFlow Glavna stranica](mlflow-homepage.png)
+
+![MLFlow Run Tab](mlflow-runs-tab.png)
+![MLFlow Matrike modela](mlflow-matrike-modela.png)
+![MLFlow Overview panel](mlflow-overview-modela.png)
+
+![MLFlow Metrika modela](mlflow-model-metrike.png)
 
 
 ## SMOTE metoda u cross validaciji
